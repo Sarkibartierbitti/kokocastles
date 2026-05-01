@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import HookPanel from '../components/HookPanel';
+import MissingKeyBanner from '../components/MissingKeyBanner';
 import StructurePanel from '../components/StructurePanel';
 import { analyzeDeep, imageUrlToBase64 } from '../lib/llm/tasks';
 import { getAdapter } from '../lib/platforms';
@@ -56,6 +57,7 @@ export default function VideoAnalysis() {
 
   return (
     <div className="space-y-6">
+      <MissingKeyBanner needs={['llm', 'youtube']} />
       <section className="koko-card p-5 grid sm:grid-cols-[16rem_1fr] gap-5">
         <img src={video.thumbnailUrl} alt="" className="w-full rounded-xl ring-1 ring-sky-200" />
         <div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import MissingKeyBanner from '../components/MissingKeyBanner';
 import VideoCard from '../components/VideoCard';
 import { analyzeTriage, explainOutlier, imageUrlToBase64 } from '../lib/llm/tasks';
 import { pMap } from '../lib/concurrency';
@@ -77,6 +78,7 @@ export default function Channel() {
 
   return (
     <div className="space-y-6">
+      <MissingKeyBanner needs={['llm', 'youtube']} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-display font-semibold">
           {videos[0]?.channelTitle || 'Channel'}
