@@ -11,15 +11,14 @@ export default defineContentScript({
       scrapeSearch().then(
         (data) => {
           const reply: ContentToBg = { type: 'scraped-search', query: data.query, results: data.results };
-          browser.runtime.sendMessage(reply).catch(() => {});
+          sendResponse(reply);
         },
         (err: Error) => {
-          const reply: ContentToBg = { type: 'scrape-failed', message: err.message };
-          browser.runtime.sendMessage(reply).catch(() => {});
+          const reply: ContentToBg = { type: 'scrape-failed', message: err?.message ?? String(err) };
+          sendResponse(reply);
         },
       );
-      sendResponse({ type: 'scrape-ack' });
-      return false;
+      return true; // keep message port open for async sendResponse
     });
   },
 });

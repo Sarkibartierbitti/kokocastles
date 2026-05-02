@@ -13,10 +13,6 @@ const pending = new Map<string, Pending>();
 
 const ACTIVE_TAB_KEY = 'koko.activeTab';
 
-let activeScrapeResolve: ((p: ScrapeResult) => void) | null = null;
-let activeScrapeReject: ((e: string) => void) | null = null;
-let activeScrapeTimer: ReturnType<typeof setTimeout> | null = null;
-
 function classifyUrl(url: string, title: string, tabId: number): ActiveTabInfo | null {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return null; }
@@ -50,39 +46,34 @@ async function refreshActiveTab(): Promise<void> {
   await browser.storage.local.set({ [ACTIVE_TAB_KEY]: info });
 }
 
-function resolveActiveScrape(p: ScrapeResult) {
-  if (activeScrapeTimer) clearTimeout(activeScrapeTimer);
-  activeScrapeResolve?.(p);
-  activeScrapeResolve = null;
-  activeScrapeReject = null;
-  activeScrapeTimer = null;
-}
-
-function rejectActiveScrape(msg: string) {
-  if (activeScrapeTimer) clearTimeout(activeScrapeTimer);
-  activeScrapeReject?.(msg);
-  activeScrapeResolve = null;
-  activeScrapeReject = null;
-  activeScrapeTimer = null;
-}
-
 async function handleScrapeActiveTab(): Promise<ScrapeResult> {
   const r = await browser.storage.local.get(ACTIVE_TAB_KEY);
   const info = (r[ACTIVE_TAB_KEY] as ActiveTabInfo | null) ?? null;
   if (!info || info.kind === 'unknown' || info.kind === 'video') {
     throw new Error('active tab is not a YouTube channel or search page');
   }
-  await browser.tabs.sendMessage(info.tabId, { type: 'scrape', kind: info.kind });
-  return new Promise<ScrapeResult>((resolve, reject) => {
-    activeScrapeResolve = resolve;
-    activeScrapeReject = reject;
-    activeScrapeTimer = setTimeout(() => {
-      activeScrapeResolve = null;
-      activeScrapeReject = null;
-      activeScrapeTimer = null;
-      reject('scrape timeout (10s) — content script did not respond');
-    }, 10_000);
-  });
+  let reply: ContentToBg;
+  try {
+    reply = (await browser.tabs.sendMessage(info.tabId, {
+      type: 'scrape',
+      kind: info.kind,
+    })) as ContentToBg;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `content script did not respond (${msg}). Reload the YouTube tab if you installed/updated the extension after opening it.`,
+    );
+  }
+  if (reply?.type === 'scraped-channel') {
+    return { kind: 'channel', videos: reply.videos, channelTitle: reply.channelTitle, channelId: reply.channelId };
+  }
+  if (reply?.type === 'scraped-search') {
+    return { kind: 'search', results: reply.results, query: reply.query };
+  }
+  if (reply?.type === 'scrape-failed') {
+    throw new Error(reply.message);
+  }
+  throw new Error('unexpected reply from content script');
 }
 
 export default defineBackground(() => {
@@ -144,26 +135,6 @@ export default defineBackground(() => {
         browser.tabs.remove(p.tabId).catch(() => {});
         p.reject(msg.message);
       }
-      return false;
-    }
-
-    if (msg.type === 'scraped-channel') {
-      resolveActiveScrape({
-        kind: 'channel',
-        videos: msg.videos,
-        channelTitle: msg.channelTitle,
-        channelId: msg.channelId,
-      });
-      return false;
-    }
-
-    if (msg.type === 'scraped-search') {
-      resolveActiveScrape({ kind: 'search', results: msg.results, query: msg.query });
-      return false;
-    }
-
-    if (msg.type === 'scrape-failed') {
-      rejectActiveScrape(msg.message);
       return false;
     }
 

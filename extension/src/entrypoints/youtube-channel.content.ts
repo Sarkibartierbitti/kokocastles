@@ -21,15 +21,14 @@ export default defineContentScript({
             channelTitle: data.channelTitle,
             videos: data.videos,
           };
-          browser.runtime.sendMessage(reply).catch(() => {});
+          sendResponse(reply);
         },
         (err: Error) => {
-          const reply: ContentToBg = { type: 'scrape-failed', message: err.message };
-          browser.runtime.sendMessage(reply).catch(() => {});
+          const reply: ContentToBg = { type: 'scrape-failed', message: err?.message ?? String(err) };
+          sendResponse(reply);
         },
       );
-      sendResponse({ type: 'scrape-ack' });
-      return false;
+      return true; // keep message port open for async sendResponse
     });
   },
 });
