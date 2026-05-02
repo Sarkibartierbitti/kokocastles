@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import MissingKeyBanner from '../components/MissingKeyBanner';
 import VideoCard from '../components/VideoCard';
-import { analyzeTriage, explainOutlier, imageUrlToBase64 } from '../lib/llm/tasks';
+import { analyzeTriage, imageUrlToBase64 } from '../lib/llm/tasks';
 import { pMap } from '../lib/concurrency';
 import { getAdapter } from '../lib/platforms';
 import { flagOutliers } from '../lib/outlier';
@@ -17,9 +17,10 @@ export default function Channel() {
   const [err, setErr] = useState<string | null>(null);
   const [triages, setTriages] = useState<Record<string, TriageResult>>({});
   const [triaging, setTriaging] = useState(false);
-  const [outlierWhy, setOutlierWhy] = useState<Record<string, string>>({});
   const [sortKey, setSortKey] = useState<'date' | 'views' | 'ratio'>('date');
   const [outlierOnly, setOutlierOnly] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
 
   const flags: OutlierFlag[] = useMemo(() => {
     const computed = flagOutliers(videos);
@@ -37,6 +38,16 @@ export default function Channel() {
     }
     return sorted;
   }, [videos, sortKey, outlierOnly]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!sortRef.current?.contains(e.target as Node)) setSortOpen(false);
+    }
+    if (sortOpen) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [sortOpen]);
+
+  const sortLabel = sortKey === 'date' ? 'recent' : sortKey === 'views' ? 'views' : 'outlier ratio';
 
   useEffect(() => {
     if (!platform || !channelId) return;
@@ -87,14 +98,6 @@ export default function Channel() {
     }
   }
 
-  async function runOutlierWhy() {
-    const targets = flags.filter((f) => f.isOutlier && !outlierWhy[f.video.videoId]);
-    await pMap(targets, storage.getLLMProvider() === 'gemini' ? 2 : 4, async (f) => {
-      const r = await explainOutlier(f.video, f.ratio);
-      setOutlierWhy((prev) => ({ ...prev, [f.video.videoId]: r.reason }));
-    });
-  }
-
   return (
     <div className="space-y-6">
       <MissingKeyBanner needs={['llm', 'youtube']} />
@@ -103,29 +106,46 @@ export default function Channel() {
           {videos[0]?.channelTitle || 'Channel'}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as 'date' | 'views' | 'ratio')}
-            className="koko-input text-sm py-1.5 max-w-[10rem]"
-            title="sort uploads"
-          >
-            <option value="date">sort: recent</option>
-            <option value="views">sort: views</option>
-            <option value="ratio">sort: outlier ratio</option>
-          </select>
-          <label className="text-xs text-slate-600 flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={outlierOnly}
-              onChange={(e) => setOutlierOnly(e.target.checked)}
-            />
-            outliers only
-          </label>
+          <div ref={sortRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setSortOpen((o) => !o)}
+              className="koko-btn-ghost text-sm"
+            >
+              Sort: {sortLabel}{outlierOnly ? ' · outliers' : ''} ▾
+            </button>
+            {sortOpen ? (
+              <div className="absolute right-0 mt-1 w-56 z-10 rounded-xl bg-white shadow-lg ring-1 ring-sky-200 p-2 space-y-1">
+                {(['date', 'views', 'ratio'] as const).map((k) => (
+                  <label
+                    key={k}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer hover:bg-koko-pink/30 ${
+                      sortKey === k ? 'bg-koko-sky/40' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sort"
+                      checked={sortKey === k}
+                      onChange={() => setSortKey(k)}
+                    />
+                    {k === 'date' ? 'recent' : k === 'views' ? 'views' : 'outlier ratio'}
+                  </label>
+                ))}
+                <div className="border-t border-sky-100 my-1" />
+                <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer hover:bg-koko-pink/30">
+                  <input
+                    type="checkbox"
+                    checked={outlierOnly}
+                    onChange={(e) => setOutlierOnly(e.target.checked)}
+                  />
+                  outliers only
+                </label>
+              </div>
+            ) : null}
+          </div>
           <button onClick={runTriage} disabled={triaging || videos.length === 0} className="koko-btn">
             {triaging ? 'scanning…' : 'Triage hooks'}
-          </button>
-          <button onClick={runOutlierWhy} disabled={!flags.some((f) => f.isOutlier)} className="koko-btn">
-            Why outliers?
           </button>
         </div>
       </div>
@@ -138,14 +158,11 @@ export default function Channel() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {flags.map((f) => (
-            <div key={f.video.videoId} className="space-y-2">
-              <VideoCard flag={f} triageHook={triages[f.video.videoId]?.spokenHook} />
-              {outlierWhy[f.video.videoId] ? (
-                <div className="text-xs text-koko-pink-deep px-2">
-                  → {outlierWhy[f.video.videoId]}
-                </div>
-              ) : null}
-            </div>
+            <VideoCard
+              key={f.video.videoId}
+              flag={f}
+              triageHook={triages[f.video.videoId]?.spokenHook}
+            />
           ))}
         </div>
       )}
