@@ -6,6 +6,7 @@ import { makeGeminiAdapter } from './gemini';
 import { getProvider } from './providers';
 import type { LLMProvider, LLMTask } from './types';
 import { storage } from '../storage';
+import { activity } from '../activity';
 
 function adapterFor(provider: LLMProvider, apiKey: string): LLMAdapter {
   const def = getProvider(provider);
@@ -61,7 +62,15 @@ export async function callLLM<T>(args: CallLLMArgs<T>): Promise<T> {
     schema: args.schema,
     maxTokens: args.maxTokens,
   };
-  return adapter.call<T>(opts);
+  const token = activity.start({ task: args.task, provider, model });
+  try {
+    const result = await adapter.call<T>(opts);
+    activity.done(token, {});
+    return result;
+  } catch (e) {
+    activity.error(token, e instanceof Error ? e.message : String(e));
+    throw e;
+  }
 }
 
 export type { ContentBlock } from './adapter';
