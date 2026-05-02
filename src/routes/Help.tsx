@@ -70,6 +70,22 @@ export default function Help() {
         <p className="text-sm text-slate-600">
           <strong>Quota:</strong> free 10,000 units/day per Google Cloud project.
         </p>
+        <div className="text-sm text-slate-600 space-y-1 border-t border-sky-100 pt-3">
+          <p className="font-semibold">Optional: automatic transcript fetch</p>
+          <p>
+            Transcript fetching requires a small Cloudflare Worker (CORS bypass). Without it the
+            app still works — you can paste a transcript manually on the video page.
+          </p>
+          <p>To deploy the worker:</p>
+          <ol className="list-decimal list-inside space-y-0.5 pl-1">
+            <li>Run <code className="bg-slate-100 px-1 rounded">cd proxy &amp;&amp; npx wrangler deploy</code></li>
+            <li>Copy the <code className="bg-slate-100 px-1 rounded">workers.dev</code> URL from the output.</li>
+            <li>Create <code className="bg-slate-100 px-1 rounded">.env.local</code> at the repo root with:<br />
+              <code className="bg-slate-100 px-1 rounded">VITE_PROXY_URL=https://&lt;your-worker&gt;.workers.dev</code>
+            </li>
+            <li>Restart <code className="bg-slate-100 px-1 rounded">npm run dev</code>.</li>
+          </ol>
+        </div>
       </section>
 
       <section className="koko-card p-6 space-y-4">

@@ -112,7 +112,23 @@ export default function VideoAnalysis() {
       {transcript == null && transcriptErr ? (
         <section className="koko-card p-5 space-y-2">
           <h3 className="font-display font-semibold">Paste transcript (fallback)</h3>
-          <p className="text-xs text-slate-500">{transcriptErr}</p>
+          {transcriptErr === 'VITE_PROXY_URL not configured' ? (
+            <div className="text-xs text-slate-600 space-y-1">
+              <p className="font-semibold text-amber-700">Transcript proxy not configured — automatic fetch disabled.</p>
+              <p>To enable it:</p>
+              <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                <li>Deploy the worker: <code className="bg-slate-100 px-1 rounded">cd proxy &amp;&amp; npx wrangler deploy</code></li>
+                <li>Copy the <code className="bg-slate-100 px-1 rounded">workers.dev</code> URL from the output.</li>
+                <li>Create <code className="bg-slate-100 px-1 rounded">.env.local</code> at the repo root with:<br />
+                  <code className="bg-slate-100 px-1 rounded">VITE_PROXY_URL=https://&lt;your-worker&gt;.workers.dev</code>
+                </li>
+                <li>Restart <code className="bg-slate-100 px-1 rounded">npm run dev</code>.</li>
+              </ol>
+              <p className="text-slate-400">Until then, paste the transcript manually below.</p>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">{transcriptErr}</p>
+          )}
           <textarea
             className="koko-input min-h-[8rem] font-mono text-xs"
             placeholder="paste captions / transcript here"
