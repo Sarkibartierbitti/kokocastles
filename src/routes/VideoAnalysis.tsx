@@ -7,6 +7,17 @@ import { analyzeDeep, imageUrlToBase64 } from '../lib/llm/tasks';
 import { getAdapter } from '../lib/platforms';
 import type { DeepAnalysis, PlatformId, TranscriptSegment, Video } from '../types';
 
+function platformVideoUrl(platform: PlatformId, videoId: string): string {
+  switch (platform) {
+    case 'youtube':
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    case 'tiktok':
+      return `https://www.tiktok.com/video/${videoId}`;
+    case 'instagram':
+      return `https://www.instagram.com/reel/${videoId}/`;
+  }
+}
+
 export default function VideoAnalysis() {
   const { platform, videoId } = useParams<{ platform: PlatformId; videoId: string }>();
   const [video, setVideo] = useState<Video | null>(null);
@@ -59,9 +70,26 @@ export default function VideoAnalysis() {
     <div className="space-y-6">
       <MissingKeyBanner needs={['llm', 'youtube']} />
       <section className="koko-card p-5 grid sm:grid-cols-[16rem_1fr] gap-5">
-        <img src={video.thumbnailUrl} alt="" className="w-full rounded-xl ring-1 ring-sky-200" />
+        <a
+          href={platformVideoUrl(video.platform, video.videoId)}
+          target="_blank"
+          rel="noreferrer"
+          className="block"
+          title="Open on platform"
+        >
+          <img src={video.thumbnailUrl} alt="" className="w-full rounded-xl ring-1 ring-sky-200" />
+        </a>
         <div>
-          <h2 className="text-lg font-display font-semibold">{video.title}</h2>
+          <h2 className="text-lg font-display font-semibold">
+            <a
+              href={platformVideoUrl(video.platform, video.videoId)}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-koko-pink-deep underline-offset-2 hover:underline"
+            >
+              {video.title} ↗
+            </a>
+          </h2>
           <div className="text-sm text-slate-500 mt-1">
             {video.channelTitle} · {video.viewCount.toLocaleString()} views · {new Date(video.publishedAt).toLocaleDateString()}
           </div>

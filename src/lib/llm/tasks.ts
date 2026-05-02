@@ -30,7 +30,7 @@ export async function analyzeTriage(
     { type: 'image', mediaType: thumb.mediaType, base64: thumb.data },
     {
       type: 'text',
-      text: `Title: ${video.title}\nChannel: ${video.channelTitle}\nViews: ${video.viewCount}\nDuration: ${video.durationSec ?? '?'} s\n\nHook transcript (0–3s): ${hookTranscript || '(none)'}`,
+      text: `Title: ${video.title}\nChannel: ${video.channelTitle}\nViews: ${video.viewCount}\nDuration: ${video.durationSec ?? '?'} s\n\nHook transcript (0–5s): ${hookTranscript || '(none)'}`,
     },
   ];
   const result = await callLLM<TriageResult>({
@@ -60,7 +60,7 @@ export async function analyzeDeep(
       type: 'text',
       text: `Title: ${video.title}\nChannel: ${video.channelTitle}\nViews: ${video.viewCount}\nDuration: ${video.durationSec ?? '?'} s`,
     },
-    { type: 'text', text: `Hook (0–3s): ${sliceByTime(transcript, 0, 3) || '(no captions in window)'}` },
+    { type: 'text', text: `Hook (0–5s): ${sliceByTime(transcript, 0, 5) || '(no captions in window)'}` },
     { type: 'text', text: `Full transcript:\n${fullText(transcript) || '(no captions)'}` },
   ];
   const result = await callLLM<DeepAnalysis>({

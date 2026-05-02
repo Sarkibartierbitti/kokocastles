@@ -18,8 +18,25 @@ export default function Channel() {
   const [triages, setTriages] = useState<Record<string, TriageResult>>({});
   const [triaging, setTriaging] = useState(false);
   const [outlierWhy, setOutlierWhy] = useState<Record<string, string>>({});
+  const [sortKey, setSortKey] = useState<'date' | 'views' | 'ratio'>('date');
+  const [outlierOnly, setOutlierOnly] = useState(false);
 
-  const flags: OutlierFlag[] = useMemo(() => flagOutliers(videos), [videos]);
+  const flags: OutlierFlag[] = useMemo(() => {
+    const computed = flagOutliers(videos);
+    const filtered = outlierOnly ? computed.filter((f) => f.isOutlier) : computed;
+    const sorted = [...filtered];
+    if (sortKey === 'views') {
+      sorted.sort((a, b) => b.video.viewCount - a.video.viewCount);
+    } else if (sortKey === 'ratio') {
+      sorted.sort((a, b) => b.ratio - a.ratio);
+    } else {
+      sorted.sort(
+        (a, b) =>
+          new Date(b.video.publishedAt).getTime() - new Date(a.video.publishedAt).getTime()
+      );
+    }
+    return sorted;
+  }, [videos, sortKey, outlierOnly]);
 
   useEffect(() => {
     if (!platform || !channelId) return;
@@ -54,7 +71,7 @@ export default function Channel() {
         let hookText = '';
         try {
           const tx = await adapter.transcript(v.videoId);
-          hookText = sliceByTime(tx, 0, 3);
+          hookText = sliceByTime(tx, 0, 5);
         } catch {
           // transcript missing — proceed with thumbnail-only
         }
@@ -85,7 +102,25 @@ export default function Channel() {
         <h2 className="text-lg font-display font-semibold">
           {videos[0]?.channelTitle || 'Channel'}
         </h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as 'date' | 'views' | 'ratio')}
+            className="koko-input text-sm py-1.5 max-w-[10rem]"
+            title="sort uploads"
+          >
+            <option value="date">sort: recent</option>
+            <option value="views">sort: views</option>
+            <option value="ratio">sort: outlier ratio</option>
+          </select>
+          <label className="text-xs text-slate-600 flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={outlierOnly}
+              onChange={(e) => setOutlierOnly(e.target.checked)}
+            />
+            outliers only
+          </label>
           <button onClick={runTriage} disabled={triaging || videos.length === 0} className="koko-btn">
             {triaging ? 'scanning…' : 'Triage hooks'}
           </button>

@@ -21,17 +21,21 @@ describe('median', () => {
 
 describe('flagOutliers', () => {
   it('empty list', () => expect(flagOutliers([])).toEqual([]));
-  it('flags 2x median', () => {
-    const out = flagOutliers([v('a', 100), v('b', 100), v('c', 250)]);
+  it('flags ≥3x median by default', () => {
+    const out = flagOutliers([v('a', 100), v('b', 100), v('c', 350)]);
     expect(out.find((o) => o.video.videoId === 'c')!.isOutlier).toBe(true);
     expect(out.find((o) => o.video.videoId === 'a')!.isOutlier).toBe(false);
+  });
+  it('does NOT flag 2x median (under default 3x threshold)', () => {
+    const out = flagOutliers([v('a', 100), v('b', 100), v('c', 250)]);
+    expect(out.find((o) => o.video.videoId === 'c')!.isOutlier).toBe(false);
   });
   it('ratio reflects baseline', () => {
     const out = flagOutliers([v('a', 100), v('b', 200)]);
     expect(out[1].ratio).toBe(200 / 150);
   });
   it('respects multiplier override', () => {
-    const out = flagOutliers([v('a', 100), v('b', 100), v('c', 250)], 3);
-    expect(out.find((o) => o.video.videoId === 'c')!.isOutlier).toBe(false);
+    const out = flagOutliers([v('a', 100), v('b', 100), v('c', 250)], 2);
+    expect(out.find((o) => o.video.videoId === 'c')!.isOutlier).toBe(true);
   });
 });

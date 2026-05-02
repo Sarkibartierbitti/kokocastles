@@ -7,7 +7,7 @@ export function median(nums: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-export function flagOutliers(videos: Video[], multiplier = 2): OutlierFlag[] {
+export function flagOutliers(videos: Video[], multiplier = 3): OutlierFlag[] {
   if (videos.length === 0) return [];
   const m = median(videos.map((v) => v.viewCount));
   const baseline = Math.max(m, 1);
