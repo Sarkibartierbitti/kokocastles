@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import ChannelCard from '~/app/components/ChannelCard';
 import MissingKeyBanner from '~/app/components/MissingKeyBanner';
-// TEMP: platform adapter wired in Task 11
-const getAdapter = (_p: string) => ({ resolveChannel: async (_x: string): Promise<never> => { throw new Error('platforms not wired yet'); } });
+import { getAdapter } from '~/lib/platforms';
 import { storage } from '~/lib/storage';
 import type { Channel, PlatformId } from '~/types';
 
