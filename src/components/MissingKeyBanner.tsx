@@ -29,7 +29,10 @@ export default function MissingKeyBanner({ needs }: Props) {
       <div className="flex-1">
         <p className="text-sm font-medium text-rose-900">{summary}</p>
         <p className="text-xs text-rose-800 mt-1">
-          Analysis and data fetches won't work until keys are saved.{' '}
+          Analysis and data fetches won't work until keys are saved.
+          {labels.length === 1 && missing[0] === 'llm' && (
+            <> Any of {12} LLM providers (Anthropic, OpenAI, Gemini, OpenRouter, Groq, etc.) supported.</>
+          )}{' '}
           <Link to="/settings" className="underline font-medium">Open Settings</Link>
           {' · '}
           <Link to="/help" className="underline font-medium">How to get keys</Link>
