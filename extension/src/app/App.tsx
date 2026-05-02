@@ -5,6 +5,8 @@ import Settings from '~/app/routes/Settings';
 import Help from '~/app/routes/Help';
 import Channel from '~/app/routes/Channel';
 import VideoAnalysis from '~/app/routes/VideoAnalysis';
+import NicheScan from '~/app/routes/NicheScan';
+import CrossChannel from '~/app/routes/CrossChannel';
 import ActivityPanel from '~/app/components/ActivityPanel';
 import { storage } from '~/lib/storage';
 import { activity } from '~/lib/activity';
@@ -31,6 +33,8 @@ export default function App() {
         <NavLink to="/" end className={({ isActive }) => isActive ? 'text-koko-pink-deep font-semibold' : 'text-slate-600'}>watchlist</NavLink>
         <NavLink to="/settings" className={({ isActive }) => isActive ? 'text-koko-pink-deep font-semibold' : 'text-slate-600'}>settings</NavLink>
         <NavLink to="/help" className={({ isActive }) => isActive ? 'text-koko-pink-deep font-semibold' : 'text-slate-600'}>help</NavLink>
+        <NavLink to="/niche" className={({ isActive }) => isActive ? 'text-koko-pink-deep font-semibold' : 'text-slate-600'}>niche</NavLink>
+        <NavLink to="/compare" className={({ isActive }) => isActive ? 'text-koko-pink-deep font-semibold' : 'text-slate-600'}>compare</NavLink>
       </nav>
       <main className="p-4">
         <Routes>
@@ -39,6 +43,8 @@ export default function App() {
           <Route path="/video/:platform/:videoId" element={<VideoAnalysis />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />
+          <Route path="/niche" element={<NicheScan />} />
+          <Route path="/compare" element={<CrossChannel />} />
         </Routes>
       </main>
       <ActivityPanel />
