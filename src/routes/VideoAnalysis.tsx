@@ -25,6 +25,7 @@ export default function VideoAnalysis() {
   const [transcriptErr, setTranscriptErr] = useState<string | null>(null);
   const [manualTranscript, setManualTranscript] = useState('');
   const [analysis, setAnalysis] = useState<DeepAnalysis | null>(null);
+  const [speculative, setSpeculative] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export default function VideoAnalysis() {
     if (!video || !platform) return;
     setBusy(true);
     setErr(null);
+    setSpeculative(false);
     try {
       const adapter = getAdapter(platform);
       const thumb = await imageUrlToBase64(adapter.thumbnail(video.videoId)).catch(() =>
@@ -53,7 +55,9 @@ export default function VideoAnalysis() {
       const tx: TranscriptSegment[] = transcript ?? (manualTranscript.trim()
         ? [{ start: 0, dur: 0, text: manualTranscript.trim() }]
         : []);
+      const wasSpeculative = tx.length === 0;
       const r = await analyzeDeep(video, thumb, tx);
+      setSpeculative(wasSpeculative);
       setAnalysis(r);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -120,8 +124,8 @@ export default function VideoAnalysis() {
 
       {analysis ? (
         <div className="grid lg:grid-cols-2 gap-5">
-          <HookPanel hook={analysis.hook} />
-          <StructurePanel analysis={analysis} />
+          <HookPanel hook={analysis.hook} speculative={speculative} />
+          <StructurePanel analysis={analysis} speculative={speculative} />
         </div>
       ) : null}
     </div>

@@ -158,7 +158,7 @@ export const systemPrompts: Record<LLMTask, string> = {
   triage:
     'You analyze short-form vertical video (TikTok, Reels, YouTube Shorts). Given the hook frame and the first seconds of transcript, classify the hook fast. Return strict JSON via the record_triage tool. No prose.',
   deep:
-    'You analyze short-form vertical video for viral structure. Identify the hook, narrative beats with timestamps, pacing, and reusable techniques. Be platform-neutral. Return strict JSON via the record_analysis tool. No prose.',
+    'You analyze short-form vertical video for viral structure. Identify the hook, narrative beats with timestamps, pacing, and reusable techniques. Be platform-neutral. Return strict JSON via the record_analysis tool. No prose. When the user provides "(no captions)" or empty transcript content, you MUST NOT invent verbal hook lines, narrative beats from speech, or CTAs that aren\'t visible in the thumbnail. Mark such fields as null or "(thumbnail-only — not verifiable)" rather than fabricating plausible content. Visual-only inferences from the thumbnail are fine; transcribed words you cannot see in the thumbnail are NOT.',
   outlierWhy:
     'You write one short, plain-language sentence explaining why a video likely over-performed its channel baseline. No hedging. Return JSON via the record_outlier_reason tool.',
   synthesis:

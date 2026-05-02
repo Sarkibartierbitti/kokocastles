@@ -54,14 +54,21 @@ export async function analyzeDeep(
   const cached = storage.getDeep(video.platform, video.videoId);
   if (cached) return cached;
   const tool = taskTools.deep;
+  const hasTranscript = transcript.length > 0;
+  const hookLine = hasTranscript
+    ? `Hook (0–5s): ${sliceByTime(transcript, 0, 5) || '(no captions in window)'}`
+    : 'Hook (0–5s): TRANSCRIPT UNAVAILABLE. Do not infer spoken hook content.';
+  const fullLine = hasTranscript
+    ? `Full transcript:\n${fullText(transcript)}`
+    : 'Full transcript: TRANSCRIPT UNAVAILABLE. Use only the thumbnail for visual cues. Do not invent verbal/textual content the thumbnail does not show.';
   const content: ContentBlock[] = [
     { type: 'image', mediaType: thumb.mediaType, base64: thumb.data },
     {
       type: 'text',
       text: `Title: ${video.title}\nChannel: ${video.channelTitle}\nViews: ${video.viewCount}\nDuration: ${video.durationSec ?? '?'} s`,
     },
-    { type: 'text', text: `Hook (0–5s): ${sliceByTime(transcript, 0, 5) || '(no captions in window)'}` },
-    { type: 'text', text: `Full transcript:\n${fullText(transcript) || '(no captions)'}` },
+    { type: 'text', text: hookLine },
+    { type: 'text', text: fullLine },
   ];
   const result = await callLLM<DeepAnalysis>({
     task: 'deep',

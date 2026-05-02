@@ -1,8 +1,14 @@
 import type { DeepAnalysis } from '../types';
 
-export default function StructurePanel({ analysis }: { analysis: DeepAnalysis }) {
+export default function StructurePanel({ analysis, speculative }: { analysis: DeepAnalysis; speculative?: boolean }) {
   return (
     <div className="koko-card p-5 space-y-4">
+      {speculative ? (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-100 text-amber-900 text-xs ring-1 ring-amber-200">
+          ⚠ Thumbnail-only analysis — no transcript available. Verbal hook + content fields
+          are inferred from the thumbnail and may not match the actual video.
+        </div>
+      ) : null}
       <div>
         <h3 className="font-display font-semibold mb-3">Structure</h3>
         <ol className="space-y-2">
