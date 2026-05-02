@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import ExportPanel from '../components/ExportPanel';
 import MissingKeyBanner from '../components/MissingKeyBanner';
 import VideoCard from '../components/VideoCard';
-import { analyzeTriage, imageUrlToBase64 } from '../lib/llm/tasks';
+import { analyzeDeep, analyzeTriage, imageUrlToBase64 } from '../lib/llm/tasks';
 import { pMap } from '../lib/concurrency';
 import { getAdapter } from '../lib/platforms';
 import { flagOutliers } from '../lib/outlier';
 import { storage } from '../lib/storage';
 import { sliceByTime } from '../lib/transcript';
-import type { OutlierFlag, PlatformId, TriageResult, Video } from '../types';
+import type { OutlierFlag, PlatformId, TranscriptSegment, TriageResult, Video } from '../types';
 
 export default function Channel() {
   const { platform, channelId } = useParams<{ platform: PlatformId; channelId: string }>();
@@ -21,6 +22,9 @@ export default function Channel() {
   const [outlierOnly, setOutlierOnly] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const flags: OutlierFlag[] = useMemo(() => {
     const computed = flagOutliers(videos);
@@ -47,6 +51,14 @@ export default function Channel() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [sortOpen]);
 
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false);
+    }
+    if (exportOpen) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [exportOpen]);
+
   const sortLabel = sortKey === 'date' ? 'recent' : sortKey === 'views' ? 'views' : 'outlier ratio';
 
   useEffect(() => {
@@ -70,6 +82,31 @@ export default function Channel() {
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [platform, channelId]);
+
+  async function handleAnalyze(targets: Video[]) {
+    if (!platform) return;
+    setAnalyzing(true);
+    const concurrency = storage.getLLMProvider() === 'gemini' ? 2 : 4;
+    try {
+      const adapter = getAdapter(platform);
+      await pMap(targets, concurrency, async (v) => {
+        if (storage.getDeep(v.platform, v.videoId)) return;
+        const triageThumbUrl = adapter.thumbnail(v.videoId);
+        const thumb = await imageUrlToBase64(triageThumbUrl).catch(() =>
+          imageUrlToBase64(v.thumbnailUrl)
+        );
+        let tx: TranscriptSegment[] = [];
+        try {
+          tx = await adapter.transcript(v.videoId);
+        } catch {
+          // transcript missing — analyzeDeep handles unavailable transcripts
+        }
+        await analyzeDeep(v, thumb, tx);
+      });
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   async function runTriage() {
     if (!platform) return;
@@ -142,6 +179,25 @@ export default function Channel() {
                   outliers only
                 </label>
               </div>
+            ) : null}
+          </div>
+          <div ref={exportRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((o) => !o)}
+              disabled={videos.length === 0}
+              className="koko-btn-ghost text-sm"
+            >
+              Export ▾
+            </button>
+            {exportOpen ? (
+              <ExportPanel
+                videos={flags.map((f) => f.video)}
+                channelTitle={videos[0]?.channelTitle || 'channel'}
+                onAnalyze={handleAnalyze}
+                onClose={() => setExportOpen(false)}
+                isAnalyzing={analyzing}
+              />
             ) : null}
           </div>
           <button onClick={runTriage} disabled={triaging || videos.length === 0} className="koko-btn">
