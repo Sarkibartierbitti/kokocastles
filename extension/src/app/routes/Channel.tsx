@@ -9,6 +9,8 @@ import { getAdapter } from '~/lib/platforms';
 import { flagOutliers } from '~/lib/outlier';
 import { storage } from '~/lib/storage';
 import { sliceByTime } from '~/lib/transcript';
+import { getActiveTab, scrapeActiveTab, subscribeActiveTab } from '~/lib/active-tab-bridge';
+import type { ActiveTabInfo } from '~/lib/messaging';
 import type { OutlierFlag, PlatformId, TranscriptSegment, TriageResult, Video } from '~/types';
 
 export default function Channel() {
@@ -26,6 +28,15 @@ export default function Channel() {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [activeMatch, setActiveMatch] = useState<ActiveTabInfo | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  function matchesChannel(info: ActiveTabInfo | null): boolean {
+    if (!info || info.kind !== 'channel' || !channelId) return false;
+    if (info.identifier === channelId) return true;
+    if (info.url.includes(channelId)) return true;
+    return false;
+  }
 
   const flags: OutlierFlag[] = useMemo(() => {
     const computed = flagOutliers(videos);
@@ -65,6 +76,37 @@ export default function Channel() {
   useEffect(() => {
     setCount(30);
   }, [platform, channelId]);
+
+  useEffect(() => {
+    void getActiveTab().then((info) => setActiveMatch(matchesChannel(info) ? info : null));
+    return subscribeActiveTab((info) => setActiveMatch(matchesChannel(info) ? info : null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId]);
+
+  async function refreshFromActiveTab() {
+    setRefreshing(true);
+    setErr(null);
+    try {
+      const r = await scrapeActiveTab();
+      if (r.kind !== 'channel') throw new Error('active tab is not a channel page');
+      const scraped: Video[] = r.videos.map((v) => ({
+        platform: 'youtube',
+        videoId: v.videoId,
+        channelId: r.channelId,
+        channelTitle: r.channelTitle,
+        title: v.title,
+        publishedAt: '',
+        durationSec: v.durationSec ?? undefined,
+        viewCount: v.viewCount ?? 0,
+        thumbnailUrl: v.thumbnailUrl,
+      }));
+      setVideos(scraped);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     if (!platform || !channelId) return;
@@ -209,6 +251,16 @@ export default function Channel() {
               />
             ) : null}
           </div>
+          {activeMatch ? (
+            <button
+              onClick={refreshFromActiveTab}
+              disabled={refreshing}
+              className="koko-btn-ghost text-sm"
+              title="Re-fetch uploads via active tab scrape (no API quota)"
+            >
+              {refreshing ? 'refreshing…' : 'Refresh from active tab'}
+            </button>
+          ) : null}
           <button onClick={runTriage} disabled={triaging || videos.length === 0} className="koko-btn">
             {triaging ? 'scanning…' : 'Triage hooks'}
           </button>
