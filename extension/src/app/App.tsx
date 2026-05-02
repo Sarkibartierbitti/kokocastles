@@ -3,6 +3,8 @@ import { Link, NavLink, Routes, Route } from 'react-router-dom';
 import Watchlist from '~/app/routes/Watchlist';
 import Settings from '~/app/routes/Settings';
 import Help from '~/app/routes/Help';
+import Channel from '~/app/routes/Channel';
+import VideoAnalysis from '~/app/routes/VideoAnalysis';
 import { storage } from '~/lib/storage';
 
 export default function App() {
@@ -31,6 +33,8 @@ export default function App() {
       <main className="p-4">
         <Routes>
           <Route path="/" element={<Watchlist />} />
+          <Route path="/channel/:platform/:channelId" element={<Channel />} />
+          <Route path="/video/:platform/:videoId" element={<VideoAnalysis />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />
         </Routes>
