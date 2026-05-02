@@ -99,6 +99,33 @@ export default function Help() {
       </section>
 
       <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Niche scan</h2>
+        <p className="text-sm text-slate-600">
+          The <strong>niche</strong> tab takes a YouTube search query, opens a hidden YouTube tab in
+          the background, and scrapes the results. Unique channels surface as a list — click any
+          to add it to your watchlist, or "Add all" to bulk-import.
+        </p>
+        <p className="text-xs text-slate-500">
+          Uses your residential IP. No YouTube Data API quota burned. One hidden tab per scan,
+          closed after scrape.
+        </p>
+      </section>
+
+      <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Cross-channel comparison</h2>
+        <p className="text-sm text-slate-600">
+          The <strong>compare</strong> tab lets you pick up to 5 watchlist channels and scrape their
+          uploads in parallel. Results are merged into a single sorted list — top 50 videos by
+          view count across the selected channels.
+        </p>
+        <p className="text-xs text-slate-500">
+          Concurrency capped at 2 hidden tabs, with a 1.5–3.5s jitter between launches to avoid
+          looking automated. Use sparingly; YouTube ToS forbids bulk automated scraping. Personal
+          use, niche-focused queries are low-risk in practice.
+        </p>
+      </section>
+
+      <section className="koko-card p-6 space-y-3">
         <h2 className="text-lg font-display font-semibold">Sidebar on right side</h2>
         <p className="text-sm text-slate-600">
           Firefox controls sidebar position globally — extensions cannot force it. To move
