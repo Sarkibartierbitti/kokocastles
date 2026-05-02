@@ -1,8 +1,9 @@
+// src/lib/llm/openaiCompat.ts
 import OpenAI from 'openai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { CallOptions, ContentBlock, LLMAdapter } from './adapter';
 
-function toOpenAIContent(blocks: ContentBlock[]): OpenAI.Chat.ChatCompletionContentPart[] {
+function toContent(blocks: ContentBlock[]): OpenAI.Chat.ChatCompletionContentPart[] {
   return blocks.map((b) => {
     if (b.type === 'text') return { type: 'text', text: b.text };
     return {
@@ -12,8 +13,13 @@ function toOpenAIContent(blocks: ContentBlock[]): OpenAI.Chat.ChatCompletionCont
   });
 }
 
-export function makeOpenAIAdapter(apiKey: string): LLMAdapter {
-  const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+/**
+ * Adapter for any OpenAI-compatible chat-completions endpoint.
+ * Used for OpenAI itself plus Mistral, DeepSeek, xAI, Moonshot, Z.ai,
+ * OpenRouter, Groq, Together, Fireworks.
+ */
+export function makeOpenAICompatAdapter(apiKey: string, baseURL: string): LLMAdapter {
+  const client = new OpenAI({ apiKey, baseURL, dangerouslyAllowBrowser: true });
   return {
     async call<T>(opts: CallOptions<T>): Promise<T> {
       const parameters = zodToJsonSchema(opts.schema, { target: 'jsonSchema7' }) as Record<string, unknown>;
@@ -23,7 +29,7 @@ export function makeOpenAIAdapter(apiKey: string): LLMAdapter {
         max_tokens: opts.maxTokens,
         messages: [
           { role: 'system', content: opts.systemPrompt },
-          { role: 'user', content: toOpenAIContent(opts.content) },
+          { role: 'user', content: toContent(opts.content) },
         ],
         tools: [
           {
@@ -31,7 +37,7 @@ export function makeOpenAIAdapter(apiKey: string): LLMAdapter {
             function: {
               name: opts.toolName,
               description: opts.toolDescription,
-              parameters: parameters as Record<string, unknown>,
+              parameters,
             },
           },
         ],
@@ -39,13 +45,13 @@ export function makeOpenAIAdapter(apiKey: string): LLMAdapter {
       });
       const call = resp.choices[0]?.message?.tool_calls?.[0];
       if (!call || call.type !== 'function') {
-        throw new Error('OpenAI did not return a function call');
+        throw new Error('Provider did not return a function call');
       }
       let args: unknown;
       try {
         args = JSON.parse(call.function.arguments);
       } catch (e) {
-        throw new Error(`OpenAI returned invalid JSON arguments: ${(e as Error).message}`);
+        throw new Error(`Provider returned invalid JSON arguments: ${(e as Error).message}`);
       }
       return opts.schema.parse(args);
     },

@@ -1,22 +1,24 @@
 import type { z } from 'zod';
 import type { CallOptions, ContentBlock, LLMAdapter } from './adapter';
 import { makeAnthropicAdapter } from './anthropic';
-import { makeOpenAIAdapter } from './openai';
+import { makeOpenAICompatAdapter } from './openaiCompat';
 import { makeGeminiAdapter } from './gemini';
 import { pickModelForProvider } from './models';
+import { getProvider } from './providers';
 import type { LLMProvider, LLMTask } from './types';
 import { storage } from '../storage';
 
 function adapterFor(provider: LLMProvider, apiKey: string): LLMAdapter {
-  switch (provider) {
-    case 'anthropic':
+  const def = getProvider(provider);
+  if (!def) throw new Error(`Unknown provider: ${provider}`);
+  switch (def.apiStyle) {
+    case 'anthropic-native':
       return makeAnthropicAdapter(apiKey);
-    case 'openai':
-      return makeOpenAIAdapter(apiKey);
-    case 'gemini':
+    case 'gemini-native':
       return makeGeminiAdapter(apiKey);
-    default:
-      throw new Error(`Unsupported provider: ${provider}`);
+    case 'openai-compat':
+      if (!def.baseURL) throw new Error(`Provider ${provider} missing baseURL`);
+      return makeOpenAICompatAdapter(apiKey, def.baseURL);
   }
 }
 
