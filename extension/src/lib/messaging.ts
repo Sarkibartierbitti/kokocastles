@@ -35,6 +35,7 @@ export type SidebarToBg =
   | { type: 'fetch-transcript'; videoId: string }
   | { type: 'get-active-tab' }
   | { type: 'scrape-active-tab' }
+  | { type: 'scrape-url'; url: string; kind: 'channel' | 'search' }
   | { type: 'ping' };
 
 export type BgToSidebar =

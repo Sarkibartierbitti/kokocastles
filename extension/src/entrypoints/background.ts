@@ -76,6 +76,49 @@ async function handleScrapeActiveTab(): Promise<ScrapeResult> {
   throw new Error('unexpected reply from content script');
 }
 
+async function handleScrapeUrl(url: string, kind: 'channel' | 'search'): Promise<ScrapeResult> {
+  const tab = await browser.tabs.create({ url, active: false });
+  if (tab.id == null) throw new Error('failed to open hidden tab');
+  const tabId = tab.id;
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      browser.tabs.onUpdated.removeListener(listener);
+      reject(new Error('tab load timeout (8s)'));
+    }, 8_000);
+    function listener(updatedId: number, change: { status?: string }) {
+      if (updatedId === tabId && change.status === 'complete') {
+        clearTimeout(timer);
+        browser.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+    browser.tabs.onUpdated.addListener(listener);
+  });
+
+  await new Promise((r) => setTimeout(r, 200));
+
+  let reply: ContentToBg;
+  try {
+    reply = (await browser.tabs.sendMessage(tabId, { type: 'scrape', kind })) as ContentToBg;
+  } catch (e) {
+    browser.tabs.remove(tabId).catch(() => {});
+    throw new Error(`content script did not respond (${e instanceof Error ? e.message : String(e)})`);
+  }
+  browser.tabs.remove(tabId).catch(() => {});
+
+  if (reply?.type === 'scraped-channel') {
+    return { kind: 'channel', videos: reply.videos, channelTitle: reply.channelTitle, channelId: reply.channelId };
+  }
+  if (reply?.type === 'scraped-search') {
+    return { kind: 'search', results: reply.results, query: reply.query };
+  }
+  if (reply?.type === 'scrape-failed') {
+    throw new Error(reply.message);
+  }
+  throw new Error('unexpected reply from content script');
+}
+
 export default defineBackground(() => {
   browser.tabs.onActivated.addListener(() => { void refreshActiveTab(); });
   browser.tabs.onUpdated.addListener((_id, change) => {
@@ -112,6 +155,14 @@ export default defineBackground(() => {
       handleScrapeActiveTab().then(
         (payload) => sendResponse({ type: 'scrape-result', payload }),
         (err: string) => sendResponse({ type: 'scrape-error', message: err }),
+      );
+      return true;
+    }
+
+    if (msg.type === 'scrape-url') {
+      handleScrapeUrl(msg.url, msg.kind).then(
+        (payload) => sendResponse({ type: 'scrape-result', payload }),
+        (err: Error) => sendResponse({ type: 'scrape-error', message: err?.message ?? String(err) }),
       );
       return true;
     }
