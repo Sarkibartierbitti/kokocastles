@@ -1,35 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { TIER_LADDER, pickModelForProvider, modelLabel } from './models';
-
-describe('TIER_LADDER', () => {
-  it('has anthropic, openai, gemini', () => {
-    expect(Object.keys(TIER_LADDER).sort()).toEqual(['anthropic', 'gemini', 'openai']);
-  });
-});
-
-describe('pickModelForProvider', () => {
-  it('eco anthropic triage → haiku', () => {
-    expect(pickModelForProvider('anthropic', 'eco', 'triage')).toBe('claude-haiku-4-5');
-  });
-  it('eco anthropic synthesis → sonnet (synthesis floor)', () => {
-    expect(pickModelForProvider('anthropic', 'eco', 'synthesis')).toBe('claude-sonnet-4-6');
-  });
-  it('max anthropic synthesis → opus', () => {
-    expect(pickModelForProvider('anthropic', 'max', 'synthesis')).toBe('claude-opus-4-7');
-  });
-  it('standard openai triage → gpt-5.4-mini', () => {
-    expect(pickModelForProvider('openai', 'standard', 'triage')).toBe('gpt-5.4-mini');
-  });
-  it('eco gemini deep → flash-lite', () => {
-    expect(pickModelForProvider('gemini', 'eco', 'deep')).toBe('gemini-2.5-flash-lite');
-  });
-  it('max gemini synthesis → pro', () => {
-    expect(pickModelForProvider('gemini', 'max', 'synthesis')).toBe('gemini-1.5-pro');
-  });
-});
+import { modelLabel, modelsForProvider } from './models';
 
 describe('modelLabel', () => {
-  it('returns a human label for known model', () => {
-    expect(modelLabel('claude-haiku-4-5')).toContain('Haiku');
+  it('returns the registry label for a known model id', () => {
+    expect(modelLabel('claude-haiku-4-5')).toBe('Claude Haiku 4.5');
+  });
+
+  it('falls back to the id for an unknown model', () => {
+    expect(modelLabel('not-a-real-model' as never)).toBe('not-a-real-model');
+  });
+});
+
+describe('modelsForProvider', () => {
+  it('returns the registry model id list for a known provider', () => {
+    const ids = modelsForProvider('anthropic');
+    expect(ids).toContain('claude-haiku-4-5');
+    expect(ids[0]).toBe('claude-haiku-4-5'); // first entry is default
+    expect(ids.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('returns empty array for unknown provider', () => {
+    expect(modelsForProvider('nope' as never)).toEqual([]);
   });
 });

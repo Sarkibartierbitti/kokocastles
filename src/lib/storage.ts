@@ -1,12 +1,11 @@
-import type { Channel, DeepAnalysis, LLMModelId, LLMProvider, LLMTask, PlatformId, TierMode, TriageResult } from '../types';
+import type { Channel, DeepAnalysis, LLMProvider, PlatformId, TriageResult } from '../types';
 
 const KEY = {
   llmKey: 'koko.llmKey',
   llmProvider: 'koko.llmProvider',
+  llmModel: 'koko.llmModel',
   legacyAnthropicKey: 'koko.anthropicKey',
   youtubeKey: 'koko.youtubeKey',
-  tierMode: 'koko.tierMode',
-  modelOverrides: 'koko.modelOverrides',
   watchlist: 'koko.watchlist',
   triageCache: (platform: PlatformId, videoId: string) => `koko.triage.${platform}.${videoId}`,
   deepCache: (platform: PlatformId, videoId: string) => `koko.deep.${platform}.${videoId}`,
@@ -43,14 +42,11 @@ export const storage = {
   getLLMProvider: () => read<LLMProvider | ''>(KEY.llmProvider, ''),
   setLLMProvider: (v: LLMProvider | '') => write(KEY.llmProvider, v),
 
+  getLLMModel: () => read<string>(KEY.llmModel, ''),
+  setLLMModel: (v: string) => write(KEY.llmModel, v),
+
   getYoutubeKey: () => read<string>(KEY.youtubeKey, ''),
   setYoutubeKey: (v: string) => write(KEY.youtubeKey, v),
-
-  getTierMode: () => read<TierMode>(KEY.tierMode, 'standard'),
-  setTierMode: (v: TierMode) => write(KEY.tierMode, v),
-
-  getModelOverrides: () => read<Partial<Record<LLMTask, LLMModelId>>>(KEY.modelOverrides, {}),
-  setModelOverrides: (v: Partial<Record<LLMTask, LLMModelId>>) => write(KEY.modelOverrides, v),
 
   getWatchlist: () => read<Channel[]>(KEY.watchlist, []),
   setWatchlist: (v: Channel[]) => write(KEY.watchlist, v),

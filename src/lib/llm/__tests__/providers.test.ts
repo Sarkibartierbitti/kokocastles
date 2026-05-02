@@ -21,12 +21,9 @@ describe('providers registry', () => {
     }
   });
 
-  it('every provider has at least one eco/standard/premium model', () => {
+  it('every provider has at least one model', () => {
     for (const p of PROVIDERS) {
-      const tiers = new Set(p.models.map((m) => m.tier));
-      expect(tiers.has('eco'), `${p.id} missing eco`).toBe(true);
-      expect(tiers.has('standard'), `${p.id} missing standard`).toBe(true);
-      expect(tiers.has('premium'), `${p.id} missing premium`).toBe(true);
+      expect(p.models.length, `${p.id} has no models`).toBeGreaterThanOrEqual(1);
     }
   });
 

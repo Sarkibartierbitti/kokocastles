@@ -4,8 +4,6 @@ export type ApiStyle = 'anthropic-native' | 'openai-compat' | 'gemini-native';
 export interface ProviderModel {
   id: string;
   label: string;
-  /** Hint for tier slotting. */
-  tier: 'eco' | 'standard' | 'max' | 'premium';
 }
 
 export interface ProviderDef {
@@ -18,7 +16,7 @@ export interface ProviderDef {
   specificity: number;
   /** Base URL for openai-compat providers. Anthropic/Gemini use SDK defaults. */
   baseURL?: string;
-  /** Curated model list — first 'standard' is the default. */
+  /** Curated model list — first entry is the default if user hasn't picked one. */
   models: ProviderModel[];
   /** External link shown in Help. */
   consoleUrl: string;
@@ -33,9 +31,10 @@ export const PROVIDERS: ProviderDef[] = [
     specificity: 13,
     consoleUrl: 'https://console.anthropic.com/',
     models: [
-      { id: 'claude-haiku-4-5', label: 'Haiku 4.5 (cheap)', tier: 'eco' },
-      { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 (default)', tier: 'standard' },
-      { id: 'claude-opus-4-7', label: 'Opus 4.7 (premium)', tier: 'premium' },
+      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+      { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+      { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+      { id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
     ],
   },
   {
@@ -47,9 +46,12 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.openai.com/v1',
     consoleUrl: 'https://platform.openai.com/api-keys',
     models: [
-      { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano (cheap)', tier: 'eco' },
-      { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini (default)', tier: 'standard' },
-      { id: 'gpt-5.4', label: 'GPT-5.4 (premium)', tier: 'premium' },
+      { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
+      { id: 'gpt-4.1', label: 'GPT-4.1' },
+      { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano' },
+      { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini' },
+      { id: 'gpt-5.4', label: 'GPT-5.4' },
+      { id: 'gpt-5.5', label: 'GPT-5.5' },
     ],
   },
   {
@@ -60,9 +62,11 @@ export const PROVIDERS: ProviderDef[] = [
     specificity: 4,
     consoleUrl: 'https://aistudio.google.com/apikey',
     models: [
-      { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (cheap)', tier: 'eco' },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (default)', tier: 'standard' },
-      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (premium)', tier: 'premium' },
+      { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-3-pro', label: 'Gemini 3 Pro' },
+      { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)' },
     ],
   },
   {
@@ -74,9 +78,13 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.mistral.ai/v1',
     consoleUrl: 'https://console.mistral.ai/',
     models: [
-      { id: 'ministral-8b-2512', label: 'Ministral 8B (cheap)', tier: 'eco' },
-      { id: 'mistral-small-2503', label: 'Mistral Small (default)', tier: 'standard' },
-      { id: 'mistral-large-3', label: 'Mistral Large 3 (premium)', tier: 'premium' },
+      { id: 'ministral-8b-2512', label: 'Ministral 8B' },
+      { id: 'mistral-small-2503', label: 'Mistral Small' },
+      { id: 'codestral-2501', label: 'Codestral' },
+      { id: 'devstral-2512', label: 'Devstral' },
+      { id: 'magistral-small-2509', label: 'Magistral Small' },
+      { id: 'magistral-medium-2509', label: 'Magistral Medium' },
+      { id: 'mistral-large-3', label: 'Mistral Large 3' },
     ],
   },
   {
@@ -88,9 +96,10 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.deepseek.com/v1',
     consoleUrl: 'https://platform.deepseek.com/api_keys',
     models: [
-      { id: 'deepseek-chat', label: 'DeepSeek Chat (cheap)', tier: 'eco' },
-      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (default)', tier: 'standard' },
-      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (premium)', tier: 'premium' },
+      { id: 'deepseek-chat', label: 'DeepSeek Chat' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
+      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
     ],
   },
   {
@@ -102,9 +111,11 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.x.ai/v1',
     consoleUrl: 'https://console.x.ai/',
     models: [
-      { id: 'grok-4.1-fast-reasoning', label: 'Grok 4.1 Fast (cheap)', tier: 'eco' },
-      { id: 'grok-4.20-non-reasoning', label: 'Grok 4.20 (default)', tier: 'standard' },
-      { id: 'grok-4.3', label: 'Grok 4.3 (premium)', tier: 'premium' },
+      { id: 'grok-code-fast-1', label: 'Grok Code Fast 1' },
+      { id: 'grok-4.1-fast-reasoning', label: 'Grok 4.1 Fast (reasoning)' },
+      { id: 'grok-4.20-non-reasoning', label: 'Grok 4.20' },
+      { id: 'grok-4.20-reasoning', label: 'Grok 4.20 (reasoning)' },
+      { id: 'grok-4.3', label: 'Grok 4.3' },
     ],
   },
   {
@@ -116,9 +127,12 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.moonshot.ai/v1',
     consoleUrl: 'https://platform.moonshot.ai/',
     models: [
-      { id: 'moonshot-v1-32k', label: 'Moonshot v1 32k (cheap)', tier: 'eco' },
-      { id: 'kimi-k2', label: 'Kimi K2 (default)', tier: 'standard' },
-      { id: 'kimi-k2.6', label: 'Kimi K2.6 (premium)', tier: 'premium' },
+      { id: 'moonshot-v1-8k', label: 'Moonshot v1 8k' },
+      { id: 'moonshot-v1-32k', label: 'Moonshot v1 32k' },
+      { id: 'moonshot-v1-128k', label: 'Moonshot v1 128k' },
+      { id: 'kimi-k2', label: 'Kimi K2' },
+      { id: 'kimi-k2.5', label: 'Kimi K2.5' },
+      { id: 'kimi-k2.6', label: 'Kimi K2.6' },
     ],
   },
   {
@@ -130,9 +144,12 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.z.ai/api/paas/v4',
     consoleUrl: 'https://z.ai/',
     models: [
-      { id: 'glm-4.5-air', label: 'GLM 4.5 Air (cheap)', tier: 'eco' },
-      { id: 'glm-4.6', label: 'GLM 4.6 (default)', tier: 'standard' },
-      { id: 'glm-5.1', label: 'GLM 5.1 (premium)', tier: 'premium' },
+      { id: 'glm-4.5-air', label: 'GLM 4.5 Air' },
+      { id: 'glm-4.5', label: 'GLM 4.5' },
+      { id: 'glm-4.6', label: 'GLM 4.6' },
+      { id: 'glm-4.7', label: 'GLM 4.7' },
+      { id: 'glm-5-turbo', label: 'GLM 5 Turbo' },
+      { id: 'glm-5.1', label: 'GLM 5.1' },
     ],
   },
   {
@@ -144,9 +161,12 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://openrouter.ai/api/v1',
     consoleUrl: 'https://openrouter.ai/keys',
     models: [
-      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (cheap)', tier: 'eco' },
-      { id: 'openai/gpt-5.4', label: 'GPT-5.4 (default)', tier: 'standard' },
-      { id: 'anthropic/claude-opus-4-7', label: 'Claude Opus 4.7 (premium)', tier: 'premium' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+      { id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+      { id: 'z-ai/glm-4.6', label: 'GLM 4.6' },
+      { id: 'openai/gpt-5.4', label: 'GPT-5.4' },
+      { id: 'google/gemini-3-pro', label: 'Gemini 3 Pro' },
+      { id: 'anthropic/claude-opus-4-7', label: 'Claude Opus 4.7' },
     ],
   },
   {
@@ -158,9 +178,12 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.groq.com/openai/v1',
     consoleUrl: 'https://console.groq.com/keys',
     models: [
-      { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant (cheap)', tier: 'eco' },
-      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (default)', tier: 'standard' },
-      { id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 70B (premium)', tier: 'premium' },
+      { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
+      { id: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+      { id: 'qwen-2.5-32b', label: 'Qwen 2.5 32B' },
+      { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+      { id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill 70B' },
     ],
   },
   {
@@ -172,9 +195,11 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.together.xyz/v1',
     consoleUrl: 'https://api.together.ai/settings/api-keys',
     models: [
-      { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo (cheap)', tier: 'eco' },
-      { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', label: 'Llama 3.3 70B Turbo (default)', tier: 'standard' },
-      { id: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B Turbo (premium)', tier: 'premium' },
+      { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' },
+      { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', label: 'Llama 3.3 70B Turbo' },
+      { id: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek V3' },
+      { id: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B Turbo' },
+      { id: 'mistralai/Mixtral-8x22B-Instruct-v0.1', label: 'Mixtral 8x22B' },
     ],
   },
   {
@@ -186,9 +211,11 @@ export const PROVIDERS: ProviderDef[] = [
     baseURL: 'https://api.fireworks.ai/inference/v1',
     consoleUrl: 'https://fireworks.ai/account/api-keys',
     models: [
-      { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B (cheap)', tier: 'eco' },
-      { id: 'accounts/fireworks/models/qwen2p5-72b-instruct', label: 'Qwen 2.5 72B (default)', tier: 'standard' },
-      { id: 'accounts/fireworks/models/deepseek-v3p1', label: 'DeepSeek V3.1 (premium)', tier: 'premium' },
+      { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', label: 'Llama 3.3 70B' },
+      { id: 'accounts/fireworks/models/qwen2p5-72b-instruct', label: 'Qwen 2.5 72B' },
+      { id: 'accounts/fireworks/models/mixtral-8x22b-instruct', label: 'Mixtral 8x22B' },
+      { id: 'accounts/fireworks/routers/kimi-k2p5-turbo', label: 'Kimi K2.5 Turbo' },
+      { id: 'accounts/fireworks/models/deepseek-v3p1', label: 'DeepSeek V3.1' },
     ],
   },
 ];

@@ -32,7 +32,6 @@ export type {
   LLMProvider,
   LLMTask,
   LLMModelId,
-  TierMode,
 } from './lib/llm/types';
 
 export interface OutlierFlag {
