@@ -1,5 +1,5 @@
 import { defineBackground } from 'wxt/utils/define-background';
-import type { ContentToBg, SidebarToBg } from '~/lib/messaging';
+import type { ActiveTabInfo, ContentToBg, ScrapeResult, SidebarToBg } from '~/lib/messaging';
 import type { TranscriptSegment } from '~/types';
 
 interface Pending {
@@ -11,7 +11,87 @@ interface Pending {
 
 const pending = new Map<string, Pending>();
 
+const ACTIVE_TAB_KEY = 'koko.activeTab';
+
+let activeScrapeResolve: ((p: ScrapeResult) => void) | null = null;
+let activeScrapeReject: ((e: string) => void) | null = null;
+let activeScrapeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function classifyUrl(url: string, title: string, tabId: number): ActiveTabInfo | null {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return null; }
+  if (!parsed.hostname.endsWith('youtube.com')) return null;
+  const path = parsed.pathname;
+  const handleMatch = path.match(/^\/@([^/]+)/);
+  if (handleMatch) return { kind: 'channel', identifier: '@' + handleMatch[1], url, title, tabId };
+  const channelMatch = path.match(/^\/channel\/([^/]+)/);
+  if (channelMatch) return { kind: 'channel', identifier: channelMatch[1], url, title, tabId };
+  const altMatch = path.match(/^\/(?:c|user)\/([^/]+)/);
+  if (altMatch) return { kind: 'channel', identifier: altMatch[1], url, title, tabId };
+  if (path === '/results') {
+    const q = parsed.searchParams.get('search_query') ?? '';
+    if (q) return { kind: 'search', identifier: q, url, title, tabId };
+  }
+  if (path === '/watch') {
+    const v = parsed.searchParams.get('v');
+    if (v) return { kind: 'video', identifier: v, url, title, tabId };
+  }
+  return null;
+}
+
+async function refreshActiveTab(): Promise<void> {
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  if (!tab || tab.id == null || !tab.url) {
+    await browser.storage.local.set({ [ACTIVE_TAB_KEY]: null });
+    return;
+  }
+  const info = classifyUrl(tab.url, tab.title ?? '', tab.id);
+  await browser.storage.local.set({ [ACTIVE_TAB_KEY]: info });
+}
+
+function resolveActiveScrape(p: ScrapeResult) {
+  if (activeScrapeTimer) clearTimeout(activeScrapeTimer);
+  activeScrapeResolve?.(p);
+  activeScrapeResolve = null;
+  activeScrapeReject = null;
+  activeScrapeTimer = null;
+}
+
+function rejectActiveScrape(msg: string) {
+  if (activeScrapeTimer) clearTimeout(activeScrapeTimer);
+  activeScrapeReject?.(msg);
+  activeScrapeResolve = null;
+  activeScrapeReject = null;
+  activeScrapeTimer = null;
+}
+
+async function handleScrapeActiveTab(): Promise<ScrapeResult> {
+  const r = await browser.storage.local.get(ACTIVE_TAB_KEY);
+  const info = (r[ACTIVE_TAB_KEY] as ActiveTabInfo | null) ?? null;
+  if (!info || info.kind === 'unknown' || info.kind === 'video') {
+    throw new Error('active tab is not a YouTube channel or search page');
+  }
+  await browser.tabs.sendMessage(info.tabId, { type: 'scrape', kind: info.kind });
+  return new Promise<ScrapeResult>((resolve, reject) => {
+    activeScrapeResolve = resolve;
+    activeScrapeReject = reject;
+    activeScrapeTimer = setTimeout(() => {
+      activeScrapeResolve = null;
+      activeScrapeReject = null;
+      activeScrapeTimer = null;
+      reject('scrape timeout (10s) — content script did not respond');
+    }, 10_000);
+  });
+}
+
 export default defineBackground(() => {
+  browser.tabs.onActivated.addListener(() => { void refreshActiveTab(); });
+  browser.tabs.onUpdated.addListener((_id, change) => {
+    if (change.url || change.title) void refreshActiveTab();
+  });
+  void refreshActiveTab();
+
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const msg = message as SidebarToBg | ContentToBg;
 
@@ -24,6 +104,23 @@ export default defineBackground(() => {
       handleFetchTranscript(msg.videoId).then(
         (segments) => sendResponse({ type: 'transcript-ok', segments }),
         (errMsg: string) => sendResponse({ type: 'transcript-err', message: errMsg }),
+      );
+      return true;
+    }
+
+    if (msg.type === 'get-active-tab') {
+      refreshActiveTab().then(() =>
+        browser.storage.local.get(ACTIVE_TAB_KEY).then((r) =>
+          sendResponse({ type: 'active-tab', info: (r[ACTIVE_TAB_KEY] as ActiveTabInfo | null) ?? null }),
+        ),
+      );
+      return true;
+    }
+
+    if (msg.type === 'scrape-active-tab') {
+      handleScrapeActiveTab().then(
+        (payload) => sendResponse({ type: 'scrape-result', payload }),
+        (err: string) => sendResponse({ type: 'scrape-error', message: err }),
       );
       return true;
     }
@@ -47,6 +144,26 @@ export default defineBackground(() => {
         browser.tabs.remove(p.tabId).catch(() => {});
         p.reject(msg.message);
       }
+      return false;
+    }
+
+    if (msg.type === 'scraped-channel') {
+      resolveActiveScrape({
+        kind: 'channel',
+        videos: msg.videos,
+        channelTitle: msg.channelTitle,
+        channelId: msg.channelId,
+      });
+      return false;
+    }
+
+    if (msg.type === 'scraped-search') {
+      resolveActiveScrape({ kind: 'search', results: msg.results, query: msg.query });
+      return false;
+    }
+
+    if (msg.type === 'scrape-failed') {
+      rejectActiveScrape(msg.message);
       return false;
     }
 
