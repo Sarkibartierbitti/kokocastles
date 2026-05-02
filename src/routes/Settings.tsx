@@ -65,7 +65,13 @@ export default function Settings() {
   const modelOptions: SelectOption[] = useMemo(() => {
     if (!llmProvider) return [];
     const def = getProvider(llmProvider);
-    return def?.models.map((m) => ({ value: m.id, label: m.label, hint: m.id })) ?? [];
+    return (
+      def?.models.map((m) => ({
+        value: m.id,
+        label: m.vision ? `👁 ${m.label}` : m.label,
+        hint: m.id,
+      })) ?? []
+    );
   }, [llmProvider]);
 
   function save() {
@@ -149,7 +155,8 @@ export default function Settings() {
             />
             <p className="text-xs text-slate-500">
               Used for all LLM tasks. {modelOptions.length} models available for{' '}
-              {getProvider(llmProvider)?.label}.
+              {getProvider(llmProvider)?.label}. Models marked 👁 accept image input
+              (required for thumbnail / video-frame analysis).
             </p>
           </div>
         ) : null}

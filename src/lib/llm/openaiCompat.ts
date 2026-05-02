@@ -24,25 +24,44 @@ export function makeOpenAICompatAdapter(apiKey: string, baseURL: string): LLMAda
     async call<T>(opts: CallOptions<T>): Promise<T> {
       const parameters = zodToJsonSchema(opts.schema, { target: 'jsonSchema7' }) as Record<string, unknown>;
       delete (parameters as { $schema?: string }).$schema;
-      const resp = await client.chat.completions.create({
-        model: opts.model,
-        max_tokens: opts.maxTokens,
-        messages: [
-          { role: 'system', content: opts.systemPrompt },
-          { role: 'user', content: toContent(opts.content) },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: opts.toolName,
-              description: opts.toolDescription,
-              parameters,
+      let resp;
+      try {
+        resp = await client.chat.completions.create({
+          model: opts.model,
+          max_tokens: opts.maxTokens,
+          messages: [
+            { role: 'system', content: opts.systemPrompt },
+            { role: 'user', content: toContent(opts.content) },
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: opts.toolName,
+                description: opts.toolDescription,
+                parameters,
+              },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: opts.toolName } },
-      });
+          ],
+          tool_choice: { type: 'function', function: { name: opts.toolName } },
+        });
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        if (
+          /image input|no endpoints found|does not support|vision/i.test(msg) &&
+          opts.content.some((b) => b.type === 'image')
+        ) {
+          throw new Error(
+            `Model "${opts.model}" doesn't accept images. Pick a vision-capable model in Settings.`
+          );
+        }
+        if (/tool|function call/i.test(msg)) {
+          throw new Error(
+            `Model "${opts.model}" doesn't support tool/function calling. Pick a different model in Settings. (${msg})`
+          );
+        }
+        throw e;
+      }
       const call = resp.choices[0]?.message?.tool_calls?.[0];
       if (!call || call.type !== 'function') {
         throw new Error('Provider did not return a function call');

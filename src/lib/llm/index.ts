@@ -40,9 +40,16 @@ export async function callLLM<T>(args: CallLLMArgs<T>): Promise<T> {
   const def = getProvider(provider);
   if (!def) throw new Error(`Unknown provider: ${provider}`);
   const stored = storage.getLLMModel();
-  const validIds = new Set(def.models.map((m) => m.id));
-  const model = stored && validIds.has(stored) ? stored : def.models[0]?.id;
-  if (!model) throw new Error(`No models registered for provider ${provider}`);
+  const modelDef =
+    (stored ? def.models.find((m) => m.id === stored) : undefined) ?? def.models[0];
+  if (!modelDef) throw new Error(`No models registered for provider ${provider}`);
+  const model = modelDef.id;
+  const hasImages = args.content.some((b) => b.type === 'image');
+  if (hasImages && !modelDef.vision) {
+    throw new Error(
+      `Model "${modelDef.label}" doesn't accept images. Pick a vision-capable model in Settings (look for the eye badge).`
+    );
+  }
   const adapter = adapterFor(provider, apiKey);
   const opts: CallOptions<T> = {
     task: args.task,
