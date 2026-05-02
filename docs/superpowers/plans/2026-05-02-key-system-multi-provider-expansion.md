@@ -1370,3 +1370,200 @@ git commit -m "chore(llm): finalize multi-provider key system"
 - **OpenAI npm SDK with `baseURL` covers all 9 OpenAI-compatible providers.** Anthropic-native (`@anthropic-ai/sdk`) and Gemini-native (`@google/genai`) keep their own adapters.
 - **No new runtime deps.** `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom` are dev-only and only needed if `SearchableSelect.test.tsx` is kept; if test infra setup feels heavy, the test in Task 9 can be skipped and the component verified manually in dev — but the `detect`/`providers`/`models` test suites remain mandatory since they protect data correctness.
 - **No migration needed.** `LLMProvider` is a superset of the prior 3-id union; existing localStorage values (`anthropic` / `openai` / `gemini`) remain valid registry ids.
+
+---
+
+## REVISION 2026-05-02 (mid-execution)
+
+User directive: drop the eco/standard/max tier system and per-task overrides. User picks ONE model per provider directly. Expand model lists to all models the research subagent surfaced.
+
+### Tasks 1–6 already shipped (commits b11970e..f9b2768) — KEEP
+
+Deltas vs. these:
+- `providers.ts`: drop `tier` field on `ProviderModel`. Expand each provider's `models[]` to the full researched set.
+- `types.ts`: drop `TierMode` and `ProviderTierLadder` exports.
+- `src/types.ts`: drop `TierMode` re-export.
+- `providers.test.ts`: drop the eco/standard/premium tier-coverage assertion. Replace with "every provider has ≥1 model".
+
+### Tasks 7–13 superseded — replaced by:
+
+#### Task R1: Drop tier system from data + types + storage + adapter wiring (one commit)
+
+**Files modified:**
+- `src/lib/llm/providers.ts` — drop `tier` field; expand `models[]` per provider (full lists below)
+- `src/lib/llm/__tests__/providers.test.ts` — drop tier-coverage test
+- `src/lib/llm/types.ts` — remove `TierMode`, `ProviderTierLadder`
+- `src/types.ts` — drop `TierMode` re-export
+- `src/lib/llm/models.ts` — remove `TIER_LADDER`, `pickModelForProvider`, `modelsForProvider` (now trivially `getProvider(id)?.models`); keep `modelLabel`
+- `src/lib/storage.ts` — drop `getTierMode`/`setTierMode`/`getModelOverrides`/`setModelOverrides`; add `getLLMModel`/`setLLMModel` (key `koko.llmModel`)
+- `src/lib/llm/index.ts` — `callLLM` reads `storage.getLLMModel()`; if empty/invalid, falls back to `getProvider(provider).models[0].id`
+
+**Expanded model lists per provider:**
+
+```ts
+// anthropic
+{ id: 'claude-haiku-4-5',   label: 'Claude Haiku 4.5' },
+{ id: 'claude-sonnet-4-6',  label: 'Claude Sonnet 4.6' },
+{ id: 'claude-opus-4-6',    label: 'Claude Opus 4.6' },
+{ id: 'claude-opus-4-7',    label: 'Claude Opus 4.7' },
+
+// openai
+{ id: 'gpt-4.1-mini',  label: 'GPT-4.1 mini' },
+{ id: 'gpt-4.1',       label: 'GPT-4.1' },
+{ id: 'gpt-5.4-nano',  label: 'GPT-5.4 nano' },
+{ id: 'gpt-5.4-mini',  label: 'GPT-5.4 mini' },
+{ id: 'gpt-5.4',       label: 'GPT-5.4' },
+{ id: 'gpt-5.5',       label: 'GPT-5.5' },
+
+// gemini
+{ id: 'gemini-2.5-flash-lite',    label: 'Gemini 2.5 Flash Lite' },
+{ id: 'gemini-2.5-flash',         label: 'Gemini 2.5 Flash' },
+{ id: 'gemini-2.5-pro',           label: 'Gemini 2.5 Pro' },
+{ id: 'gemini-3-pro',             label: 'Gemini 3 Pro' },
+{ id: 'gemini-3.1-pro-preview',   label: 'Gemini 3.1 Pro (preview)' },
+
+// mistral
+{ id: 'ministral-8b-2512',     label: 'Ministral 8B' },
+{ id: 'mistral-small-2503',    label: 'Mistral Small' },
+{ id: 'codestral-2501',        label: 'Codestral' },
+{ id: 'devstral-2512',         label: 'Devstral' },
+{ id: 'magistral-small-2509',  label: 'Magistral Small' },
+{ id: 'magistral-medium-2509', label: 'Magistral Medium' },
+{ id: 'mistral-large-3',       label: 'Mistral Large 3' },
+
+// deepseek
+{ id: 'deepseek-chat',      label: 'DeepSeek Chat' },
+{ id: 'deepseek-reasoner',  label: 'DeepSeek Reasoner' },
+{ id: 'deepseek-v4-flash',  label: 'DeepSeek V4 Flash' },
+{ id: 'deepseek-v4-pro',    label: 'DeepSeek V4 Pro' },
+
+// xai
+{ id: 'grok-code-fast-1',          label: 'Grok Code Fast 1' },
+{ id: 'grok-4.1-fast-reasoning',   label: 'Grok 4.1 Fast (reasoning)' },
+{ id: 'grok-4.20-non-reasoning',   label: 'Grok 4.20' },
+{ id: 'grok-4.20-reasoning',       label: 'Grok 4.20 (reasoning)' },
+{ id: 'grok-4.3',                  label: 'Grok 4.3' },
+
+// moonshot
+{ id: 'moonshot-v1-8k',    label: 'Moonshot v1 8k' },
+{ id: 'moonshot-v1-32k',   label: 'Moonshot v1 32k' },
+{ id: 'moonshot-v1-128k',  label: 'Moonshot v1 128k' },
+{ id: 'kimi-k2',           label: 'Kimi K2' },
+{ id: 'kimi-k2.5',         label: 'Kimi K2.5' },
+{ id: 'kimi-k2.6',         label: 'Kimi K2.6' },
+
+// zai
+{ id: 'glm-4.5-air',  label: 'GLM 4.5 Air' },
+{ id: 'glm-4.5',      label: 'GLM 4.5' },
+{ id: 'glm-4.6',      label: 'GLM 4.6' },
+{ id: 'glm-4.7',      label: 'GLM 4.7' },
+{ id: 'glm-5-turbo',  label: 'GLM 5 Turbo' },
+{ id: 'glm-5.1',      label: 'GLM 5.1' },
+
+// openrouter
+{ id: 'meta-llama/llama-3.3-70b-instruct',  label: 'Llama 3.3 70B' },
+{ id: 'deepseek/deepseek-v4-pro',           label: 'DeepSeek V4 Pro' },
+{ id: 'z-ai/glm-4.6',                       label: 'GLM 4.6' },
+{ id: 'openai/gpt-5.4',                     label: 'GPT-5.4' },
+{ id: 'google/gemini-3-pro',                label: 'Gemini 3 Pro' },
+{ id: 'anthropic/claude-opus-4-7',          label: 'Claude Opus 4.7' },
+
+// groq
+{ id: 'llama-3.1-8b-instant',          label: 'Llama 3.1 8B Instant' },
+{ id: 'gemma2-9b-it',                  label: 'Gemma 2 9B' },
+{ id: 'qwen-2.5-32b',                  label: 'Qwen 2.5 32B' },
+{ id: 'mixtral-8x7b-32768',            label: 'Mixtral 8x7B' },
+{ id: 'llama-3.3-70b-versatile',       label: 'Llama 3.3 70B' },
+{ id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill 70B' },
+
+// together
+{ id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' },
+{ id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',      label: 'Llama 3.3 70B Turbo' },
+{ id: 'deepseek-ai/DeepSeek-V3',                      label: 'DeepSeek V3' },
+{ id: 'Qwen/Qwen2.5-72B-Instruct-Turbo',              label: 'Qwen 2.5 72B Turbo' },
+{ id: 'mistralai/Mixtral-8x22B-Instruct-v0.1',        label: 'Mixtral 8x22B' },
+
+// fireworks
+{ id: 'accounts/fireworks/models/llama-v3p3-70b-instruct',  label: 'Llama 3.3 70B' },
+{ id: 'accounts/fireworks/models/qwen2p5-72b-instruct',     label: 'Qwen 2.5 72B' },
+{ id: 'accounts/fireworks/models/mixtral-8x22b-instruct',   label: 'Mixtral 8x22B' },
+{ id: 'accounts/fireworks/routers/kimi-k2p5-turbo',         label: 'Kimi K2.5 Turbo' },
+{ id: 'accounts/fireworks/models/deepseek-v3p1',            label: 'DeepSeek V3.1' },
+```
+
+`modelsForProvider(p)` becomes a thin wrapper: `getProvider(p)?.models.map(m => m.id) ?? []` — keep it for back-compat but Settings will read `getProvider(p)?.models` directly for label+id.
+
+`pickModelForProvider` is removed entirely. `callLLM` reads `storage.getLLMModel()`; if empty or no longer in `getProvider(provider).models`, falls back to `getProvider(provider).models[0].id` (first model in registry order). No hidden tier mapping.
+
+**Migration:** stale `koko.tierMode` / `koko.modelOverrides` localStorage keys are left orphaned (harmless). No active read path references them after this change.
+
+Commit subject: `refactor(llm): drop tier system, single direct model selection per provider`.
+
+#### Task R2: SearchableSelect component (unchanged from old Task 9)
+
+Same as Task 9 from original plan. No change needed.
+
+#### Task R3: Settings UI rewrite — provider + model dropdowns only
+
+**Files modified:** `src/routes/Settings.tsx`
+
+Replace entire route. Final UI:
+- LLM key input + detection badge + searchable provider dropdown (override)
+- Searchable model dropdown (scoped to selected provider; shows full model list)
+- YouTube key input
+- Save button
+
+Drop entirely:
+- `TIERS` const
+- `TASKS` const
+- `tier` state
+- `overrides` state
+- `advanced` toggle
+- `availableModels` derivation via `modelsForProvider`
+- Tier section JSX
+- Per-task override JSX
+
+New state shape:
+```tsx
+const [llmKey, setLlmKey] = useState('');
+const [llmProvider, setLlmProvider] = useState<LLMProvider | ''>('');
+const [llmModel, setLlmModel] = useState<string>('');
+const [youtubeKey, setYoutubeKey] = useState('');
+```
+
+When provider changes: if current `llmModel` is not in new provider's model list, reset `llmModel` to first model in that provider's list.
+
+Save persists: `setLLMKey`, `setLLMProvider`, `setLLMModel`, `setYoutubeKey`.
+
+Model dropdown options:
+```tsx
+const modelOptions: SelectOption[] = useMemo(() => {
+  const def = llmProvider ? getProvider(llmProvider) : undefined;
+  return def?.models.map((m) => ({ value: m.id, label: m.label, hint: m.id })) ?? [];
+}, [llmProvider]);
+```
+
+Commit subject: `feat(settings): direct provider + model picker, drop tier UI`.
+
+#### Task R4: Help docs simplification
+
+**Files modified:** `src/routes/Help.tsx`, `src/components/MissingKeyBanner.tsx`
+
+- Drop tier explanation entirely from Help.
+- Replace per-provider hardcoded sections with a registry-driven loop showing label, API style, console URL.
+- `MissingKeyBanner` copy generalized as in original plan Task 12.
+
+Commit subject: `docs(help): list 12 providers from registry; drop tier explanation`.
+
+#### Task R5: Final verification (smoke + tests + commit)
+
+Same as old Task 13 minus the tier-related smoke scenarios. New smoke matrix:
+
+| Scenario | Action | Expect |
+|---|---|---|
+| Anthropic key | paste valid key | "Detected: Anthropic"; model dropdown shows 4 Claude models |
+| OpenRouter key | paste `sk-or-v1-` + 64 hex | "Detected: OpenRouter"; model dropdown shows 6 routed models |
+| Provider switch | switch from OpenRouter to Anthropic | model auto-resets to first Anthropic model |
+| Search models | type "opus" in model dropdown | filters to opus entries |
+| Save persists | save, reload | provider + model + keys all restored |
+| Real call | trigger triage analysis with valid key | succeeds with selected model |
