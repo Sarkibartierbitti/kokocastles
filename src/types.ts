@@ -32,9 +32,6 @@ export type {
   LLMProvider,
   LLMTask,
   LLMModelId,
-  AnthropicModelId,
-  OpenAIModelId,
-  GeminiModelId,
   TierMode,
 } from './lib/llm/types';
 

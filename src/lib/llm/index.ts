@@ -15,6 +15,8 @@ function adapterFor(provider: LLMProvider, apiKey: string): LLMAdapter {
       return makeOpenAIAdapter(apiKey);
     case 'gemini':
       return makeGeminiAdapter(apiKey);
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
   }
 }
 

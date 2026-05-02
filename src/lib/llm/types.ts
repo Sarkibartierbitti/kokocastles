@@ -1,21 +1,9 @@
-export type LLMProvider = 'anthropic' | 'openai' | 'gemini';
+import { PROVIDERS, type ProviderId } from './providers';
 
-export type AnthropicModelId =
-  | 'claude-haiku-4-5'
-  | 'claude-sonnet-4-6'
-  | 'claude-opus-4-7';
+export type LLMProvider = ProviderId;
 
-export type OpenAIModelId =
-  | 'gpt-5.4-nano'
-  | 'gpt-5.4-mini'
-  | 'gpt-5.4';
-
-export type GeminiModelId =
-  | 'gemini-2.5-flash-lite'
-  | 'gemini-2.5-flash'
-  | 'gemini-1.5-pro';
-
-export type LLMModelId = AnthropicModelId | OpenAIModelId | GeminiModelId;
+/** Union of every model id across all providers. */
+export type LLMModelId = (typeof PROVIDERS)[number]['models'][number]['id'];
 
 export type LLMTask = 'triage' | 'deep' | 'outlierWhy' | 'synthesis';
 
