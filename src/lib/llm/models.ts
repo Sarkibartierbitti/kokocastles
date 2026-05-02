@@ -14,10 +14,10 @@ export const TIER_LADDER: Record<LLMProvider, ProviderTierLadder> = {
     synthesisMax: 'gpt-5.4',
   },
   gemini: {
-    eco: 'gemini-flash-lite',
-    standard: 'gemini-flash',
-    max: 'gemini-flash',
-    synthesisMax: 'gemini-pro',
+    eco: 'gemini-2.5-flash-lite',
+    standard: 'gemini-2.5-flash',
+    max: 'gemini-1.5-pro',
+    synthesisMax: 'gemini-1.5-pro',
   },
 };
 
@@ -47,9 +47,9 @@ const LABELS: Record<LLMModelId, string> = {
   'gpt-5.4-nano': 'GPT-5.4 nano (cheap)',
   'gpt-5.4-mini': 'GPT-5.4 mini (default)',
   'gpt-5.4': 'GPT-5.4 (premium)',
-  'gemini-flash-lite': 'Gemini Flash Lite (cheap)',
-  'gemini-flash': 'Gemini Flash (default)',
-  'gemini-pro': 'Gemini Pro (premium)',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite (cheap)',
+  'gemini-2.5-flash': 'Gemini 2.5 Flash (default)',
+  'gemini-1.5-pro': 'Gemini 1.5 Pro (premium)',
 };
 
 export function modelLabel(id: LLMModelId): string {

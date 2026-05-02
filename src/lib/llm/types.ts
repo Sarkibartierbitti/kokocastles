@@ -11,9 +11,9 @@ export type OpenAIModelId =
   | 'gpt-5.4';
 
 export type GeminiModelId =
-  | 'gemini-flash-lite'
-  | 'gemini-flash'
-  | 'gemini-pro';
+  | 'gemini-2.5-flash-lite'
+  | 'gemini-2.5-flash'
+  | 'gemini-1.5-pro';
 
 export type LLMModelId = AnthropicModelId | OpenAIModelId | GeminiModelId;
 

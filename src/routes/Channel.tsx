@@ -46,9 +46,10 @@ export default function Channel() {
   async function runTriage() {
     if (!platform) return;
     setTriaging(true);
+    const concurrency = storage.getLLMProvider() === 'gemini' ? 2 : 6;
     try {
       const adapter = getAdapter(platform);
-      await pMap(videos, 6, async (v) => {
+      await pMap(videos, concurrency, async (v) => {
         if (storage.getTriage(v.platform, v.videoId)) return;
         let hookText = '';
         try {
@@ -57,7 +58,8 @@ export default function Channel() {
         } catch {
           // transcript missing — proceed with thumbnail-only
         }
-        const thumb = await imageUrlToBase64(adapter.thumbnail(v.videoId)).catch(() =>
+        const triageThumbUrl = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`;
+        const thumb = await imageUrlToBase64(triageThumbUrl).catch(() =>
           imageUrlToBase64(v.thumbnailUrl)
         );
         const r = await analyzeTriage(v, thumb, hookText);
@@ -70,7 +72,7 @@ export default function Channel() {
 
   async function runOutlierWhy() {
     const targets = flags.filter((f) => f.isOutlier && !outlierWhy[f.video.videoId]);
-    await pMap(targets, 4, async (f) => {
+    await pMap(targets, storage.getLLMProvider() === 'gemini' ? 2 : 4, async (f) => {
       const r = await explainOutlier(f.video, f.ratio);
       setOutlierWhy((prev) => ({ ...prev, [f.video.videoId]: r.reason }));
     });

@@ -76,12 +76,20 @@ export function makeGeminiAdapter(apiKey: string): LLMAdapter {
           maxOutputTokens: opts.maxTokens,
         },
       });
-      const candidate = resp.candidates?.[0];
-      const part = candidate?.content?.parts?.find((p) => p.functionCall);
-      if (!part?.functionCall?.args) {
-        throw new Error('Gemini did not return a function call');
+      // @google/genai 0.x exposes a `functionCalls` getter as the canonical accessor.
+      // Fall back to manual candidate traversal for forward compatibility.
+      const fcArgs =
+        (resp as unknown as { functionCalls?: { name: string; args: unknown }[] })
+          .functionCalls?.[0]?.args ??
+        resp.candidates?.[0]?.content?.parts?.find((p) => p.functionCall)?.functionCall?.args;
+      if (!fcArgs) {
+        const finishReason = resp.candidates?.[0]?.finishReason ?? 'unknown';
+        throw new Error(
+          `Gemini did not return a function call (finishReason: ${finishReason}). ` +
+          `Check model "${opts.model}" supports function calling, or try Standard/Eco tier.`
+        );
       }
-      return opts.schema.parse(part.functionCall.args);
+      return opts.schema.parse(fcArgs);
     },
   };
 }

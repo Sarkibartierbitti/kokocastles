@@ -21,10 +21,10 @@ describe('pickModelForProvider', () => {
     expect(pickModelForProvider('openai', 'standard', 'triage')).toBe('gpt-5.4-mini');
   });
   it('eco gemini deep → flash-lite', () => {
-    expect(pickModelForProvider('gemini', 'eco', 'deep')).toBe('gemini-flash-lite');
+    expect(pickModelForProvider('gemini', 'eco', 'deep')).toBe('gemini-2.5-flash-lite');
   });
   it('max gemini synthesis → pro', () => {
-    expect(pickModelForProvider('gemini', 'max', 'synthesis')).toBe('gemini-pro');
+    expect(pickModelForProvider('gemini', 'max', 'synthesis')).toBe('gemini-1.5-pro');
   });
 });
 

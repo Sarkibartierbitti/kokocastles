@@ -112,7 +112,7 @@ export default function Settings() {
                   Unrecognized key prefix. Pick provider manually below.
                 </span>
               )}
-              {detected.kind !== 'detected' && (
+              {detected.kind === 'unknown' && (
                 <select
                   className="koko-input max-w-xs"
                   value={llmProvider}
