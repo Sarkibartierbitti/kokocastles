@@ -1,0 +1,101 @@
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import HookPanel from '../components/HookPanel';
+import MissingKeyBanner from '../components/MissingKeyBanner';
+import StructurePanel from '../components/StructurePanel';
+import { analyzeDeep, imageUrlToBase64 } from '../lib/llm/tasks';
+import { getAdapter } from '../lib/platforms';
+import type { DeepAnalysis, PlatformId, TranscriptSegment, Video } from '../types';
+
+export default function VideoAnalysis() {
+  const { platform, videoId } = useParams<{ platform: PlatformId; videoId: string }>();
+  const [video, setVideo] = useState<Video | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptSegment[] | null>(null);
+  const [transcriptErr, setTranscriptErr] = useState<string | null>(null);
+  const [manualTranscript, setManualTranscript] = useState('');
+  const [analysis, setAnalysis] = useState<DeepAnalysis | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!platform || !videoId) return;
+    let cancelled = false;
+    const adapter = getAdapter(platform);
+    adapter.videoDetails([videoId]).then((vs) => {
+      if (!cancelled) setVideo(vs[0] ?? null);
+    }).catch((e) => !cancelled && setErr(e instanceof Error ? e.message : String(e)));
+    adapter.transcript(videoId)
+      .then((tx) => !cancelled && setTranscript(tx))
+      .catch((e) => !cancelled && setTranscriptErr(e instanceof Error ? e.message : String(e)));
+    return () => { cancelled = true; };
+  }, [platform, videoId]);
+
+  async function run() {
+    if (!video || !platform) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const adapter = getAdapter(platform);
+      const thumb = await imageUrlToBase64(adapter.thumbnail(video.videoId)).catch(() =>
+        imageUrlToBase64(video.thumbnailUrl)
+      );
+      const tx: TranscriptSegment[] = transcript ?? (manualTranscript.trim()
+        ? [{ start: 0, dur: 0, text: manualTranscript.trim() }]
+        : []);
+      const r = await analyzeDeep(video, thumb, tx);
+      setAnalysis(r);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!video) {
+    return <div className="koko-card p-6">{err ?? 'loading…'}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <MissingKeyBanner needs={['llm', 'youtube']} />
+      <section className="koko-card p-5 grid sm:grid-cols-[16rem_1fr] gap-5">
+        <img src={video.thumbnailUrl} alt="" className="w-full rounded-xl ring-1 ring-sky-200" />
+        <div>
+          <h2 className="text-lg font-display font-semibold">{video.title}</h2>
+          <div className="text-sm text-slate-500 mt-1">
+            {video.channelTitle} · {video.viewCount.toLocaleString()} views · {new Date(video.publishedAt).toLocaleDateString()}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button onClick={run} disabled={busy} className="koko-btn">
+              {busy ? 'analyzing…' : analysis ? 're-analyze' : 'Analyze'}
+            </button>
+            {transcript == null && transcriptErr ? (
+              <span className="text-xs text-amber-700">transcript unavailable — paste below</span>
+            ) : null}
+          </div>
+          {err ? <div className="mt-3 text-sm text-red-600">{err}</div> : null}
+        </div>
+      </section>
+
+      {transcript == null && transcriptErr ? (
+        <section className="koko-card p-5 space-y-2">
+          <h3 className="font-display font-semibold">Paste transcript (fallback)</h3>
+          <p className="text-xs text-slate-500">{transcriptErr}</p>
+          <textarea
+            className="koko-input min-h-[8rem] font-mono text-xs"
+            placeholder="paste captions / transcript here"
+            value={manualTranscript}
+            onChange={(e) => setManualTranscript(e.target.value)}
+          />
+        </section>
+      ) : null}
+
+      {analysis ? (
+        <div className="grid lg:grid-cols-2 gap-5">
+          <HookPanel hook={analysis.hook} />
+          <StructurePanel analysis={analysis} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
