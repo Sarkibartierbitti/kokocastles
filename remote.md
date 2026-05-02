@@ -208,10 +208,43 @@ _(empty — first iteration)_
 
 ---
 
+## Schedule (claude.ai routines)
+
+Three routines on `https://claude.ai/code/routines`:
+
+| Routine | ID | Cron / Time | State |
+|---|---|---|---|
+| Kickoff (one-shot) | `trig_01HgmW7dtFGK1RfefusUm9ra` | 2026-05-02T22:39:00Z (one-shot, +4h from arming) | **enabled** |
+| Recurring A (every 3h on hour) | `trig_01XmKAkjgTmbB4TZDa5CDNNP` | `0 0,3,6,9,12,15,18,21 * * *` UTC | **disabled** |
+| Recurring B (every 3h, +1h30m offset) | `trig_013VH3jGZKF3sF8zb2sG79R8` | `30 1,4,7,10,13,16,19,22 * * *` UTC | **disabled** |
+
+Combined recurring cadence (when both enabled): 90 min between fires —
+00:00, 01:30, 03:00, 04:30, 06:00, 07:30, 09:00, 10:30, 12:00, 13:30, 15:00,
+16:30, 18:00, 19:30, 21:00, 22:30 UTC. Daily.
+
+### Human owner: post-kickoff enable
+
+The kickoff fires once at 22:39 UTC (2026-05-02). After reviewing its commit
+on `remote-dev`, ENABLE both recurring routines on the dashboard. The first
+recurring fire after that will land on the 90-min grid (next slot ≥ enable
+time). Iterations from kickoff onward, if recurring is enabled at 22:40 UTC:
+22:39 (kickoff), 23:00 — wait, no — A is `0,3,6,9,12,15,18,21` and B is
+`1,4,7,10,13,16,19,22` minute 30. After 22:39, next fire = 0:00 UTC (A) =
++1h21m. Then 1:30, 3:00, 4:30 ... clean 90-min grid.
+
+Iteration count over 9h post-kickoff with recurring enabled: 6 iterations
+(22:39, 0:00, 1:30, 3:00, 4:30, 6:00, 7:30) — matches user's "5–6 in ~9h"
+target.
+
+If the human owner is asleep when the kickoff fires and can't enable: the
+kickoff iteration will be the only run until they enable. Acceptable.
+
+---
+
 ## Iteration Log
 
 _(cloud agents append entries here)_
 
 | Timestamp (UTC) | Track | Commit | Outcome |
 |---|---|---|---|
-| 2026-05-02 — | bootstrap | n/a | remote.md written, branch created, schedule armed |
+| 2026-05-02 19:08Z | bootstrap | `eb2d213` | remote.md written, branch created, 3 routines armed (1 enabled, 2 disabled) |
