@@ -1,5 +1,7 @@
 import type { DeepAnalysis, PlatformId, Video } from '../types';
 
+export type ExportFormat = 'csv' | 'xlsx';
+
 export function platformVideoUrl(platform: PlatformId, videoId: string): string {
   switch (platform) {
     case 'youtube':
@@ -52,14 +54,47 @@ function rowFor(v: Video, a: DeepAnalysis | null): string[] {
   ];
 }
 
+const EXPORT_HEADER = [
+  'channel',
+  'video_url',
+  'views',
+  'upload_date',
+  'hook',
+  'main_idea',
+  'cta',
+  'formats',
+];
+
 export function videosToCSV(videos: Video[], analyses: Map<string, DeepAnalysis>): string {
-  const header = ['channel', 'video_url', 'views', 'upload_date', 'hook', 'main_idea', 'cta', 'formats'];
   const rows = videos.map((v) => rowFor(v, analyses.get(v.videoId) ?? null));
-  return [header, ...rows].map((row) => row.map(csvField).join(',')).join('\n');
+  return [EXPORT_HEADER, ...rows].map((row) => row.map(csvField).join(',')).join('\n');
 }
 
-export function triggerDownload(filename: string, csv: string): void {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+export async function videosToXLSX(
+  videos: Video[],
+  analyses: Map<string, DeepAnalysis>
+): Promise<ArrayBuffer> {
+  const XLSX = await import('xlsx');
+  const rows = videos.map((v) => rowFor(v, analyses.get(v.videoId) ?? null));
+  const aoa = [EXPORT_HEADER, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // Auto-set column widths based on header + content max length, capped at 60.
+  const colWidths = EXPORT_HEADER.map((h, i) => {
+    const maxLen = Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length));
+    return { wch: Math.min(60, Math.max(10, maxLen + 2)) };
+  });
+  ws['!cols'] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'videos');
+  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+}
+
+export function triggerDownload(
+  filename: string,
+  content: string | ArrayBuffer,
+  mimeType: string
+): void {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

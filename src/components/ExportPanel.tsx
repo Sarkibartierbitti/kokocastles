@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { storage } from '../lib/storage';
-import { triggerDownload, videosToCSV } from '../lib/export';
+import { triggerDownload, videosToCSV, videosToXLSX } from '../lib/export';
+import type { ExportFormat } from '../lib/export';
 import type { DeepAnalysis, Video } from '../types';
+
+const CSV_MIME = 'text/csv;charset=utf-8';
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 interface Props {
   videos: Video[];
@@ -36,6 +40,7 @@ export default function ExportPanel({ videos, channelTitle, onAnalyze, onClose: 
   const max = Math.max(1, videos.length);
   const initialN = Math.min(10, max);
   const [topN, setTopN] = useState(initialN);
+  const [format, setFormat] = useState<ExportFormat>('xlsx');
   const [tickedIds, setTickedIds] = useState<Set<string>>(
     () => new Set(videos.slice(0, initialN).map((v) => v.videoId))
   );
@@ -64,18 +69,27 @@ export default function ExportPanel({ videos, channelTitle, onAnalyze, onClose: 
     });
   }
 
-  function exportTopN() {
-    const subset = videos.slice(0, topN).filter((v) => tickedIds.has(v.videoId));
-    if (subset.length === 0) return;
-    const csv = videosToCSV(subset, buildAnalysesMap(subset));
-    triggerDownload(`${slug}-top${topN}-${todayISO()}.csv`, csv);
+  async function doExport(targets: Video[], suffix: string) {
+    if (targets.length === 0) return;
+    const analyses = buildAnalysesMap(targets);
+    const date = todayISO();
+    if (format === 'xlsx') {
+      const buf = await videosToXLSX(targets, analyses);
+      triggerDownload(`${slug}-${suffix}-${date}.xlsx`, buf, XLSX_MIME);
+    } else {
+      const csv = videosToCSV(targets, analyses);
+      triggerDownload(`${slug}-${suffix}-${date}.csv`, csv, CSV_MIME);
+    }
   }
 
-  function exportAll() {
+  async function exportTopN() {
+    const subset = videos.slice(0, topN).filter((v) => tickedIds.has(v.videoId));
+    await doExport(subset, `top${topN}`);
+  }
+
+  async function exportAll() {
     const subset = videos.filter((v) => tickedIds.has(v.videoId));
-    if (subset.length === 0) return;
-    const csv = videosToCSV(subset, buildAnalysesMap(subset));
-    triggerDownload(`${slug}-all-${todayISO()}.csv`, csv);
+    await doExport(subset, 'all');
   }
 
   async function analyzeTopN() {
@@ -105,6 +119,22 @@ export default function ExportPanel({ videos, channelTitle, onAnalyze, onClose: 
             className="w-16 px-2 py-1 rounded-lg ring-1 ring-sky-200 text-sm"
           />
         </label>
+        <div className="flex rounded-xl ring-1 ring-sky-200 overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => setFormat('csv')}
+            className={`px-3 py-1.5 ${format === 'csv' ? 'bg-koko-sky/40' : 'bg-white hover:bg-sky-50'}`}
+          >
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormat('xlsx')}
+            className={`px-3 py-1.5 ${format === 'xlsx' ? 'bg-koko-sky/40' : 'bg-white hover:bg-sky-50'}`}
+          >
+            XLSX
+          </button>
+        </div>
         <button type="button" onClick={exportTopN} className="koko-btn-ghost text-sm">
           Export top {topN}
         </button>
