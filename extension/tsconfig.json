@@ -1,0 +1,16 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "entrypoints", "wxt.config.ts"]
+}
