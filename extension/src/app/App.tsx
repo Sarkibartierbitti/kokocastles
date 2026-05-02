@@ -5,13 +5,15 @@ import Settings from '~/app/routes/Settings';
 import Help from '~/app/routes/Help';
 import Channel from '~/app/routes/Channel';
 import VideoAnalysis from '~/app/routes/VideoAnalysis';
+import ActivityPanel from '~/app/components/ActivityPanel';
 import { storage } from '~/lib/storage';
+import { activity } from '~/lib/activity';
 
 export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    storage.hydrate().then(() => setReady(true));
+    Promise.all([storage.hydrate(), activity.hydrate()]).then(() => setReady(true));
   }, []);
 
   if (!ready) {
@@ -19,7 +21,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen text-slate-900">
+    <div className="min-h-screen text-slate-900 pb-12">
       <header className="px-4 py-3 border-b border-sky-100 flex items-center gap-3">
         <Link to="/" className="koko-wordmark text-lg">
           kokocastles
@@ -39,6 +41,7 @@ export default function App() {
           <Route path="/help" element={<Help />} />
         </Routes>
       </main>
+      <ActivityPanel />
     </div>
   );
 }
