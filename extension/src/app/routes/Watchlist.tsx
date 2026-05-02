@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ActiveTabCard from '~/app/components/ActiveTabCard';
 import ChannelCard from '~/app/components/ChannelCard';
 import MissingKeyBanner from '~/app/components/MissingKeyBanner';
 import { getAdapter } from '~/lib/platforms';
@@ -44,6 +45,7 @@ export default function Watchlist() {
   return (
     <div className="space-y-6">
       <MissingKeyBanner needs={['youtube']} />
+      <ActiveTabCard onResult={() => setList(storage.getWatchlist())} />
       <section className="koko-card p-6 space-y-4">
         <h2 className="text-lg font-display font-semibold">Add a channel</h2>
         <div className="flex flex-col sm:flex-row gap-2">
