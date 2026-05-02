@@ -13,7 +13,7 @@ export interface SearchableSelectProps {
   options: Option[];
   onChange: (value: string) => void;
   placeholder?: string;
-  /** Optional empty-state label, e.g. '— tier default —'. Selecting it sends ''. */
+  /** Optional empty-state label, e.g. '— first available —'. Selecting it sends ''. */
   emptyLabel?: string;
   className?: string;
   disabled?: boolean;

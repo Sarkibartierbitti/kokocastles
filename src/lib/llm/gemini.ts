@@ -86,7 +86,7 @@ export function makeGeminiAdapter(apiKey: string): LLMAdapter {
         const finishReason = resp.candidates?.[0]?.finishReason ?? 'unknown';
         throw new Error(
           `Gemini did not return a function call (finishReason: ${finishReason}). ` +
-          `Check model "${opts.model}" supports function calling, or try Standard/Eco tier.`
+          `Check model "${opts.model}" supports function calling, or pick a different model in Settings.`
         );
       }
       return opts.schema.parse(fcArgs);

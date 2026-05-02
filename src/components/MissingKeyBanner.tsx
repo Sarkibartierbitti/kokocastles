@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { storage } from '../lib/storage';
+import { isValidProviderId } from '../lib/llm/providers';
 
 export type RequiredKey = 'llm' | 'youtube';
 
@@ -9,7 +10,12 @@ interface Props {
 
 export default function MissingKeyBanner({ needs }: Props) {
   const missing: RequiredKey[] = [];
-  if (needs.includes('llm') && (!storage.getLLMKey() || !storage.getLLMProvider())) {
+  if (
+    needs.includes('llm') &&
+    (!storage.getLLMKey() ||
+      !storage.getLLMProvider() ||
+      !isValidProviderId(storage.getLLMProvider()))
+  ) {
     missing.push('llm');
   }
   if (needs.includes('youtube') && !storage.getYoutubeKey()) {
