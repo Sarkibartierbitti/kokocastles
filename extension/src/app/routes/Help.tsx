@@ -98,6 +98,45 @@ export default function Help() {
         </ul>
       </section>
 
+      <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Sidebar on right side</h2>
+        <p className="text-sm text-slate-600">
+          Firefox controls sidebar position globally — extensions cannot force it. To move
+          the kokocastles sidebar to the right edge of the window:
+        </p>
+        <ol className="list-decimal list-inside text-sm text-slate-600 space-y-1">
+          <li>Right-click anywhere on the sidebar header</li>
+          <li>Click <strong>Move Sidebar to Right</strong></li>
+        </ol>
+        <p className="text-xs text-slate-500">
+          Available in Firefox 106+. The setting persists across browser restarts.
+        </p>
+      </section>
+
+      <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Active-tab integration</h2>
+        <p className="text-sm text-slate-600">
+          When you're on a YouTube channel page (e.g. <code>youtube.com/@MrBeast</code>) or
+          a search results page, the sidebar shows an "active tab" card. Clicking the
+          button scrapes the page from your residential IP — no YouTube Data API quota
+          burned, works without an API key.
+        </p>
+        <p className="text-sm text-slate-600">
+          Inside a Channel route, when the same channel is also open in another browser
+          tab, a <strong>"Refresh from active tab"</strong> button appears next to "Triage hooks".
+          Use it to re-pull uploads quota-free.
+        </p>
+      </section>
+
+      <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Activity panel</h2>
+        <p className="text-sm text-slate-600">
+          The bar pinned at the bottom of the sidebar tracks every LLM call: provider,
+          model, in-flight status, estimated cost (when pricing is known). Click to
+          expand. Persists last 50 calls across reloads.
+        </p>
+      </section>
+
       <div>
         <Link to="/settings" className="koko-btn">Go to Settings</Link>
       </div>
