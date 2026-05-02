@@ -14,6 +14,7 @@ import type { OutlierFlag, PlatformId, TranscriptSegment, TriageResult, Video } 
 export default function Channel() {
   const { platform, channelId } = useParams<{ platform: PlatformId; channelId: string }>();
   const [videos, setVideos] = useState<Video[]>([]);
+  const [count, setCount] = useState(30);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [triages, setTriages] = useState<Record<string, TriageResult>>({});
@@ -62,12 +63,16 @@ export default function Channel() {
   const sortLabel = sortKey === 'date' ? 'recent' : sortKey === 'views' ? 'views' : 'outlier ratio';
 
   useEffect(() => {
+    setCount(30);
+  }, [platform, channelId]);
+
+  useEffect(() => {
     if (!platform || !channelId) return;
     let cancelled = false;
     setLoading(true);
     setErr(null);
     getAdapter(platform)
-      .recentUploads(channelId, 30)
+      .recentUploads(channelId, count)
       .then((v) => {
         if (cancelled) return;
         setVideos(v);
@@ -81,7 +86,7 @@ export default function Channel() {
       .catch((e) => !cancelled && setErr(e instanceof Error ? e.message : String(e)))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [platform, channelId]);
+  }, [platform, channelId, count]);
 
   async function handleAnalyze(targets: Video[]) {
     if (!platform) return;
@@ -133,6 +138,10 @@ export default function Channel() {
     } finally {
       setTriaging(false);
     }
+  }
+
+  function loadMore(delta: number) {
+    setCount((c) => c + delta);
   }
 
   return (
@@ -207,20 +216,40 @@ export default function Channel() {
       </div>
 
       {err ? <div className="koko-card p-4 text-red-600 text-sm">{err}</div> : null}
-      {loading ? (
+      {loading && videos.length === 0 ? (
         <div className="koko-card p-8 text-center text-slate-500">loading recent uploads…</div>
       ) : videos.length === 0 ? (
         <div className="koko-card p-8 text-center text-slate-500">no recent uploads found</div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {flags.map((f) => (
-            <VideoCard
-              key={f.video.videoId}
-              flag={f}
-              triageHook={triages[f.video.videoId]?.spokenHook}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {flags.map((f) => (
+              <VideoCard
+                key={f.video.videoId}
+                flag={f}
+                triageHook={triages[f.video.videoId]?.spokenHook}
+              />
+            ))}
+          </div>
+          {videos.length >= count ? (
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                onClick={() => loadMore(10)}
+                disabled={loading}
+                className="koko-btn-ghost text-sm"
+              >
+                {loading ? 'loading…' : 'Load 10 more'}
+              </button>
+              <button
+                onClick={() => loadMore(30)}
+                disabled={loading}
+                className="koko-btn-ghost text-sm"
+              >
+                {loading ? 'loading…' : 'Load 30 more'}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );
