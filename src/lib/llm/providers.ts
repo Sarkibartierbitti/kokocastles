@@ -119,8 +119,8 @@ export const PROVIDERS: ProviderDef[] = [
       { id: 'deepseek-v3.1-terminus', label: 'DeepSeek V3.1 Terminus' },
       { id: 'deepseek-v3.2', label: 'DeepSeek V3.2' },
       { id: 'deepseek-v3.2-exp', label: 'DeepSeek V3.2 Experimental' },
-      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', vision: true },
-      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', vision: true },
+      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
     ],
   },
   {
@@ -237,8 +237,8 @@ export const PROVIDERS: ProviderDef[] = [
       { id: 'deepseek/deepseek-v3.1-terminus', label: 'DeepSeek V3.1 Terminus' },
       { id: 'deepseek/deepseek-v3.2', label: 'DeepSeek V3.2' },
       { id: 'deepseek/deepseek-v3.2-exp', label: 'DeepSeek V3.2 Experimental' },
-      { id: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash', vision: true },
-      { id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro', vision: true },
+      { id: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+      { id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
       // Moonshot
       { id: 'moonshotai/kimi-k2', label: 'Kimi K2' },
       { id: 'moonshotai/kimi-k2-0905', label: 'Kimi K2 (0905)' },
