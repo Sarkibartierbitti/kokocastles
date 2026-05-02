@@ -6,22 +6,27 @@ describe('detectProvider', () => {
     expect(detectProvider('')).toEqual({ kind: 'unknown' });
   });
   it('sk-ant- → anthropic', () => {
-    expect(detectProvider('sk-ant-abc123')).toEqual({ kind: 'detected', provider: 'anthropic' });
+    const key = 'sk-ant-api03-' + 'a'.repeat(95);
+    expect(detectProvider(key)).toEqual({ kind: 'detected', provider: 'anthropic' });
   });
-  it('sk-proj- → openai', () => {
-    expect(detectProvider('sk-proj-abc123')).toEqual({ kind: 'detected', provider: 'openai' });
+  it('sk-proj- → openai (ambiguous with moonshot)', () => {
+    const key = 'sk-proj-' + 'A'.repeat(60);
+    const r = detectProvider(key);
+    expect(r.kind).toBe('detected');
+    if (r.kind === 'detected') expect(r.provider).toBe('openai');
   });
-  it('plain sk- → openai', () => {
-    expect(detectProvider('sk-abc123')).toEqual({ kind: 'detected', provider: 'openai' });
+  it('plain sk- with hex chars → ambiguous', () => {
+    const key = 'sk-' + 'a'.repeat(48);
+    const r = detectProvider(key);
+    expect(r.kind).toBe('ambiguous');
   });
-  it('AIza → ambiguous (gemini or youtube)', () => {
-    expect(detectProvider('AIzaSyAbc123')).toEqual({
-      kind: 'ambiguous',
-      candidates: ['gemini'],
-    });
+  it('AIza → detected gemini', () => {
+    const key = 'AIza' + 'a'.repeat(35);
+    expect(detectProvider(key)).toEqual({ kind: 'detected', provider: 'gemini' });
   });
   it('whitespace trimmed', () => {
-    expect(detectProvider('  sk-ant-abc  ')).toEqual({ kind: 'detected', provider: 'anthropic' });
+    const key = '  sk-ant-api03-' + 'a'.repeat(95) + '  ';
+    expect(detectProvider(key)).toEqual({ kind: 'detected', provider: 'anthropic' });
   });
   it('unrecognized prefix → unknown', () => {
     expect(detectProvider('foobar123')).toEqual({ kind: 'unknown' });
