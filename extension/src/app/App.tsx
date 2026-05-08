@@ -10,7 +10,7 @@ import NicheScan from '~/app/routes/NicheScan';
 import CrossChannel from '~/app/routes/CrossChannel';
 import Analyze from '~/app/routes/Analyze';
 import Persona from '~/app/routes/Persona';
-import Databanks from '~/app/routes/Databanks';
+import DatabanksList from '~/app/routes/DatabanksList';
 import Ideas from '~/app/routes/Ideas';
 import MyChannel from '~/app/routes/MyChannel';
 import Writer from '~/app/routes/Writer';
@@ -38,7 +38,7 @@ export default function App() {
           <Route path="/channels" element={<Watchlist />} />
           <Route path="/channel/:platform/:channelId" element={<Channel />} />
           <Route path="/video/:platform/:videoId" element={<VideoAnalysis />} />
-          <Route path="/databanks" element={<Databanks />} />
+          <Route path="/databanks" element={<DatabanksList />} />
           <Route path="/ideas" element={<Ideas />} />
           <Route path="/my-channel" element={<MyChannel />} />
           <Route path="/writer" element={<Writer />} />
