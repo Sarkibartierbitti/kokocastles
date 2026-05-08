@@ -30,7 +30,13 @@ const KEY = {
   databanks: 'koko.databanks',
   hiddenPrefix: 'koko.hidden.',
   ideas: 'koko.ideas',
+  ytQuotaToday: 'koko.ytQuotaToday',
 } as const;
+
+export interface YtQuotaToday {
+  date: string;       // YYYY-MM-DD UTC
+  unitsUsed: number;
+}
 
 const cache = new Map<string, unknown>();
 let hydrated = false;
@@ -259,6 +265,18 @@ export const storage = {
   deleteIdea: async (id: string) => {
     const list = storage.getIdeas().filter((i) => i.id !== id);
     await writeThrough(KEY.ideas, list);
+  },
+
+  getYtQuotaToday: (): YtQuotaToday => {
+    const today = new Date().toISOString().slice(0, 10);
+    const v = getCached<YtQuotaToday>(KEY.ytQuotaToday, { date: today, unitsUsed: 0 });
+    if (v.date !== today) return { date: today, unitsUsed: 0 };
+    return v;
+  },
+  bumpYtQuotaToday: async (units: number): Promise<void> => {
+    const cur = storage.getYtQuotaToday();
+    const next: YtQuotaToday = { date: cur.date, unitsUsed: cur.unitsUsed + units };
+    await writeThrough(KEY.ytQuotaToday, next);
   },
 };
 

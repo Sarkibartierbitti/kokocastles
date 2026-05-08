@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
+import QuotaMeter from './QuotaMeter';
 
 interface NavEntry {
   to: string;
@@ -25,6 +26,9 @@ export default function Sidebar() {
     <>
       <header className="px-4 py-3 border-b border-sky-100 flex items-center gap-3">
         <Link to="/" className="koko-wordmark text-lg">kokocastles</Link>
+        <div className="ml-auto">
+          <QuotaMeter />
+        </div>
       </header>
       <nav className="px-4 py-2 flex flex-wrap gap-3 text-xs border-b border-sky-100">
         {ENTRIES.map((e) => (

@@ -11,8 +11,21 @@ function key(): string {
   return k;
 }
 
+// YouTube Data API v3 quota cost per endpoint (units).
+// https://developers.google.com/youtube/v3/determine_quota_cost
+const QUOTA_COST: Record<string, number> = {
+  channels: 1,
+  playlistItems: 1,
+  videos: 1,
+  search: 100,
+};
+
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams({ ...params, key: key() }).toString();
+  const cost = QUOTA_COST[path] ?? 1;
+  // Bump quota counter BEFORE the call so failed requests still count
+  // (Google charges quota on rejected requests in many failure modes).
+  void storage.bumpYtQuotaToday(cost);
   const res = await fetch(`${API}/${path}?${qs}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
