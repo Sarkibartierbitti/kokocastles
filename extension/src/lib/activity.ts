@@ -2,9 +2,11 @@ import type { LLMTask } from '~/types';
 
 export type ActivityStatus = 'in-flight' | 'done' | 'error';
 
+// `task` is widened to string so non-LLM jobs (scrape, yt-api) can share
+// the same activity panel without polluting the LLMTask union.
 export interface ActivityEntry {
   id: string;
-  task: LLMTask;
+  task: LLMTask | string;
   provider: string;
   model: string;
   status: ActivityStatus;
@@ -14,6 +16,8 @@ export interface ActivityEntry {
   tokensOut?: number;
   costUsd?: number | null;
   error?: string;
+  // Optional free-form details — used by scrape jobs to surface the URL.
+  detail?: string;
 }
 
 export type ActivityEvent =
@@ -78,7 +82,7 @@ export const activity = {
     }
   },
 
-  start(args: { task: LLMTask; provider: string; model: string }): string {
+  start(args: { task: LLMTask | string; provider: string; model: string; detail?: string }): string {
     const id = newId();
     const entry: ActivityEntry = {
       id,
@@ -87,6 +91,7 @@ export const activity = {
       model: args.model,
       status: 'in-flight',
       startedAt: Date.now(),
+      detail: args.detail,
     };
     entries.set(id, entry);
     order.push(id);

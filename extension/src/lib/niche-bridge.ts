@@ -1,15 +1,39 @@
 import type { BgToSidebar, ScrapeResult, ScrapedSearchResult, ScrapedVideo, SidebarToBg } from './messaging';
 import { runBatch, type BatchResult } from './batch-queue';
+import { activity } from './activity';
 
 const SEARCH_URL = (q: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 const CHANNEL_URL = (id: string) => `https://www.youtube.com/channel/${encodeURIComponent(id)}`;
 
 async function scrapeUrlViaBackground(url: string, kind: 'channel' | 'search'): Promise<ScrapeResult> {
-  const req: SidebarToBg = { type: 'scrape-url', url, kind };
-  const reply = (await browser.runtime.sendMessage(req)) as BgToSidebar;
-  if (reply.type === 'scrape-result') return reply.payload;
-  if (reply.type === 'scrape-error') throw new Error(reply.message);
-  throw new Error('unexpected reply from background');
+  const taskName = kind === 'search' ? 'scrape-search' : 'scrape-channel';
+  const id = activity.start({
+    task: taskName,
+    provider: 'youtube-tab',
+    model: 'dom-scrape',
+    detail: url,
+  });
+  try {
+    const req: SidebarToBg = { type: 'scrape-url', url, kind };
+    const reply = (await browser.runtime.sendMessage(req)) as BgToSidebar;
+    if (reply?.type === 'scrape-result') {
+      activity.done(id, {});
+      return reply.payload;
+    }
+    if (reply?.type === 'scrape-error') {
+      activity.error(id, reply.message);
+      throw new Error(reply.message);
+    }
+    const msg = `unexpected reply from background: ${JSON.stringify(reply)}`;
+    activity.error(id, msg);
+    throw new Error(msg);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // If we already marked error above the entry status is now 'error' —
+    // calling error() again is a no-op (status guarded).
+    activity.error(id, msg);
+    throw e;
+  }
 }
 
 export async function scrapeSearchQuery(query: string): Promise<{ query: string; results: ScrapedSearchResult[] }> {
