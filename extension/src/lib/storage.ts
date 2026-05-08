@@ -28,6 +28,7 @@ const KEY = {
   throttleJitterMs: 'koko.throttleJitterMs',
   cacheLruCap: 'koko.cacheLruCap',
   databanks: 'koko.databanks',
+  hiddenPrefix: 'koko.hidden.',
 } as const;
 
 const cache = new Map<string, unknown>();
@@ -54,6 +55,7 @@ async function writeThrough<T>(key: string, value: T): Promise<void> {
 function triageKey(p: PlatformId, id: string) { return `${KEY.triagePrefix}${p}.${id}`; }
 function deepKey(p: PlatformId, id: string) { return `${KEY.deepPrefix}${p}.${id}`; }
 function transcriptKey(p: PlatformId, id: string) { return `${KEY.transcriptPrefix}${p}.${id}`; }
+function hiddenKey(p: PlatformId, id: string) { return `${KEY.hiddenPrefix}${p}.${id}`; }
 
 let databankIndex: Map<string, Set<string>> = new Map();
 
@@ -215,6 +217,28 @@ export const storage = {
       const platform = rest.slice(0, dot) as PlatformId;
       const videoId = rest.slice(dot + 1);
       if (v) out.push({ platform, videoId, segments: v as TranscriptSegment[] });
+    }
+    return out;
+  },
+
+  isHiddenVideo: (platform: PlatformId, videoId: string): boolean => {
+    return cache.get(hiddenKey(platform, videoId)) === true;
+  },
+  hideVideo: (platform: PlatformId, videoId: string) =>
+    writeThrough(hiddenKey(platform, videoId), true),
+  unhideVideo: async (platform: PlatformId, videoId: string) => {
+    const k = hiddenKey(platform, videoId);
+    cache.delete(k);
+    await browser.storage.local.remove(k);
+  },
+  getAllHiddenKeys: (): Set<string> => {
+    const out = new Set<string>();
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith(KEY.hiddenPrefix) || v !== true) continue;
+      const rest = k.slice(KEY.hiddenPrefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) continue;
+      out.add(`${rest.slice(0, dot)}::${rest.slice(dot + 1)}`);
     }
     return out;
   },
