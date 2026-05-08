@@ -1,8 +1,8 @@
 import { callLLM, type ContentBlock } from './index';
 import { storage } from '../storage';
-import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema } from '../prompts';
+import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema } from '../prompts';
 import { fullText, sliceByTime } from '../transcript';
-import type { DeepAnalysis, TranscriptSegment, TriageResult, Video } from '../../types';
+import type { DeepAnalysis, Idea, IdeaSourceRef, Persona, PlatformId, TranscriptSegment, TriageResult, Video } from '../../types';
 
 export async function imageUrlToBase64(url: string): Promise<{ data: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' }> {
   const res = await fetch(url);
@@ -116,4 +116,46 @@ export async function synthesize(deepAnalyses: DeepAnalysis[], niche?: string) {
     schema: synthesisSchema,
     maxTokens: 2000,
   });
+}
+
+interface IdeasInput {
+  deepEntries: Array<{ platform: PlatformId; videoId: string; deep: DeepAnalysis }>;
+  persona: Persona | null;
+}
+
+export async function generateIdeas({ deepEntries, persona }: IdeasInput): Promise<Idea[]> {
+  const tool = taskTools.ideas;
+  const personaBlock = persona && (persona.niche || persona.context)
+    ? `Creator niche: ${persona.niche}\nBrand context: ${persona.context}`
+    : '(no persona configured)';
+  const summaries = deepEntries.slice(0, 30).map((d, i) => {
+    const h = d.deep.hook;
+    return `${i + 1}. [${d.platform}/${d.videoId}] hook: "${h.spoken || h.onScreen}" · format: ${h.visualFormat} · techniques: ${d.deep.techniques.join(', ')}`;
+  }).join('\n');
+
+  const content: ContentBlock[] = [
+    { type: 'text', text: `${personaBlock}\n\nAnalyzed videos:\n${summaries || '(none)'}` },
+  ];
+
+  const result = await callLLM<{ ideas: Array<{ title: string; rationale: string; score: number }> }>({
+    task: 'ideas',
+    systemPrompt: systemPrompts.ideas,
+    content,
+    toolName: tool.name,
+    toolDescription: tool.description ?? 'record ideas',
+    schema: ideasSchema,
+    maxTokens: 1500,
+  });
+
+  const refs: IdeaSourceRef[] = deepEntries.map((d) => ({ platform: d.platform, videoId: d.videoId }));
+  const now = new Date().toISOString();
+  return result.ideas.map((i) => ({
+    id: crypto.randomUUID(),
+    title: i.title,
+    rationale: i.rationale,
+    bucket: 'inbox' as const,
+    createdAt: now,
+    sourceRefs: refs,
+    score: i.score,
+  }));
 }
