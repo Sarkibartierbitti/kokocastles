@@ -9,6 +9,13 @@ export interface Channel {
   thumbnailUrl?: string;
 }
 
+export interface Persona {
+  niche: string;        // ≤5000 chars
+  context: string;      // ≤5000 chars
+  styleSample: string;  // ≤3000 chars
+  attachedDatabankIds: string[];
+}
+
 export interface Video {
   platform: PlatformId;
   videoId: string;

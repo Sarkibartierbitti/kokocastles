@@ -1,4 +1,4 @@
-import type { Channel, DeepAnalysis, LLMModelId, LLMProvider, PlatformId, TriageResult } from '~/types';
+import type { Channel, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TriageResult } from '~/types';
 
 declare const browser: {
   storage: {
@@ -18,6 +18,13 @@ const KEY = {
   watchlist: 'koko.watchlist',
   triagePrefix: 'koko.triage.',
   deepPrefix: 'koko.deep.',
+  persona: 'koko.persona',
+  outlierThreshold: 'koko.outlierThreshold',
+  ownChannel: 'koko.ownChannel',
+  refreshIntervalHours: 'koko.refreshIntervalHours',
+  throttleConcurrency: 'koko.throttleConcurrency',
+  throttleJitterMs: 'koko.throttleJitterMs',
+  cacheLruCap: 'koko.cacheLruCap',
 } as const;
 
 const cache = new Map<string, unknown>();
@@ -93,6 +100,27 @@ export const storage = {
   },
   setDeep: (platform: PlatformId, videoId: string, r: DeepAnalysis) =>
     writeThrough(deepKey(platform, videoId), r),
+
+  getPersona: () => getCached<Persona>(KEY.persona, { niche: '', context: '', styleSample: '', attachedDatabankIds: [] }),
+  setPersona: (v: Persona) => writeThrough(KEY.persona, v),
+
+  getOutlierThreshold: () => getCached<number>(KEY.outlierThreshold, 1.5),
+  setOutlierThreshold: (v: number) => writeThrough(KEY.outlierThreshold, v),
+
+  getOwnChannel: () => getCached<Channel | null>(KEY.ownChannel, null),
+  setOwnChannel: (v: Channel | null) => writeThrough(KEY.ownChannel, v),
+
+  getRefreshIntervalHours: () => getCached<number>(KEY.refreshIntervalHours, 6),
+  setRefreshIntervalHours: (v: number) => writeThrough(KEY.refreshIntervalHours, v),
+
+  getThrottleConcurrency: () => getCached<number>(KEY.throttleConcurrency, 2),
+  setThrottleConcurrency: (v: number) => writeThrough(KEY.throttleConcurrency, v),
+
+  getThrottleJitterMs: () => getCached<number>(KEY.throttleJitterMs, 2500),
+  setThrottleJitterMs: (v: number) => writeThrough(KEY.throttleJitterMs, v),
+
+  getCacheLruCap: () => getCached<number>(KEY.cacheLruCap, 10000),
+  setCacheLruCap: (v: number) => writeThrough(KEY.cacheLruCap, v),
 };
 
 export type { LLMModelId, LLMProvider, PlatformId };
