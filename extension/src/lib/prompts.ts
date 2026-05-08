@@ -33,6 +33,16 @@ export const outlierWhySchema = z.object({
   reason: z.string(),
 });
 
+export const ideasSchema = z.object({
+  ideas: z.array(
+    z.object({
+      title: z.string().min(3),
+      rationale: z.string().min(5),
+      score: z.number().min(0).max(1),
+    })
+  ).min(1).max(20),
+});
+
 export const synthesisSchema = z.object({
   sharedPatterns: z.array(
     z.object({
@@ -120,6 +130,28 @@ export const taskTools = {
       required: ['reason'],
     },
   },
+  ideas: {
+    name: 'record_ideas',
+    description: 'Record the generated short-form video ideas.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        ideas: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'catchy hook-style title, ≤80 chars' },
+              rationale: { type: 'string', description: 'why this might work for this creator, 1–2 sentences' },
+              score: { type: 'number', description: 'confidence 0..1' },
+            },
+            required: ['title', 'rationale', 'score'],
+          },
+        },
+      },
+      required: ['ideas'],
+    },
+  },
   synthesis: {
     name: 'record_synthesis',
     description: 'Cross-video pattern synthesis and a reusable script template.',
@@ -163,4 +195,6 @@ export const systemPrompts: Record<LLMTask, string> = {
     'You write one short, plain-language sentence explaining why a video likely over-performed its channel baseline. No hedging. Return JSON via the record_outlier_reason tool.',
   synthesis:
     'You synthesize patterns across multiple analyzed short-form videos in the same niche, then produce a reusable script template. Be specific and actionable. Return JSON via the record_synthesis tool.',
+  ideas:
+    "You are a creative strategist generating short-form video ideas inspired by a creator's analyzed videos and persona. Output 8 to 12 distinct ideas. Each idea has: title (catchy hook style, ≤80 chars), rationale (why it might work for this creator, 1–2 sentences), score (0..1 confidence). Do not repeat themes already saturated in the source set.",
 };
