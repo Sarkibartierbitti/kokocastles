@@ -19,6 +19,7 @@ export default function Settings() {
   const [throttleJitterMs, setThrottleJitterMs] = useState(2500);
   const [cacheLruCap, setCacheLruCap] = useState(10000);
   const [ownChannel, setOwnChannel] = useState<Channel | null>(null);
+  const [ownChannelInput, setOwnChannelInput] = useState('');
 
   useEffect(() => {
     setLlmKey(storage.getLLMKey());
@@ -31,6 +32,8 @@ export default function Settings() {
     setThrottleJitterMs(storage.getThrottleJitterMs());
     setCacheLruCap(storage.getCacheLruCap());
     setOwnChannel(storage.getOwnChannel());
+    const oc = storage.getOwnChannel();
+    if (oc) setOwnChannelInput(`https://www.youtube.com/channel/${oc.channelId}`);
   }, []);
 
   const detected = useMemo(() => detectProvider(llmKey), [llmKey]);
@@ -102,7 +105,22 @@ export default function Settings() {
     await storage.setThrottleConcurrency(throttleConcurrency);
     await storage.setThrottleJitterMs(throttleJitterMs);
     await storage.setCacheLruCap(cacheLruCap);
-    await storage.setOwnChannel(ownChannel);
+    const trimmed = ownChannelInput.trim();
+    if (!trimmed) {
+      setOwnChannel(null);
+      await storage.setOwnChannel(null);
+    } else {
+      // Lazy import so test doesn't have to mock the YouTube adapter.
+      const { youtubeAdapter } = await import('~/lib/platforms/youtube');
+      try {
+        const resolved = await youtubeAdapter.resolveChannel(trimmed);
+        setOwnChannel(resolved);
+        await storage.setOwnChannel(resolved);
+      } catch (err) {
+        console.warn('own-channel resolve failed', err);
+        // Keep previous value on resolve failure.
+      }
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -273,6 +291,32 @@ export default function Settings() {
             />
             <p className="text-xs text-slate-500">How often own-channel polling runs. Default 6h.</p>
           </div>
+        </div>
+      </section>
+
+      <section className="koko-card p-6 space-y-4">
+        <h2 className="text-lg font-display font-semibold">My channel</h2>
+        <div className="space-y-1">
+          <label htmlFor="own-channel-url" className="text-sm font-medium text-slate-700">
+            Own channel URL
+          </label>
+          <input
+            id="own-channel-url"
+            type="text"
+            placeholder="https://www.youtube.com/@yourhandle  ·  https://www.youtube.com/channel/UC…"
+            value={ownChannelInput}
+            onChange={(e) => setOwnChannelInput(e.target.value)}
+            className="w-full max-w-xl rounded-lg border border-sky-200 px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-slate-500">
+            Resolved on save via YouTube Data API. Used by the My Channel page (Phase 6) for
+            analytics + hypothesis tagging.
+          </p>
+          {ownChannel ? (
+            <div className="text-xs text-slate-500">
+              Currently linked: <strong>{ownChannel.title}</strong> ({ownChannel.channelId})
+            </div>
+          ) : null}
         </div>
       </section>
 

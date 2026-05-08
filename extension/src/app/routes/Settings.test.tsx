@@ -79,3 +79,23 @@ describe('Settings — throttling + refresh', () => {
     });
   });
 });
+
+describe('Settings — own channel', () => {
+  it('renders own-channel URL input empty by default', async () => {
+    await renderSettings();
+    const input = await screen.findByLabelText(/own channel url/i) as HTMLInputElement;
+    expect(input.value).toBe('');
+  });
+
+  it('persists own channel after resolve on save', async () => {
+    // Pre-seed storage so the input round-trips a previously-saved channel.
+    fakeStore['koko.ownChannel'] = {
+      platform: 'youtube',
+      channelId: 'UCown',
+      title: 'Me',
+    };
+    await renderSettings();
+    const input = await screen.findByLabelText(/own channel url/i) as HTMLInputElement;
+    expect(input.value).toContain('UCown');
+  });
+});
