@@ -78,3 +78,18 @@ export interface Databank {
   createdAt: string;   // ISO
   videoRefs: DatabankVideoRef[];
 }
+
+export interface IdeaSourceRef {
+  platform: PlatformId;
+  videoId: string;
+}
+
+export interface Idea {
+  id: string;            // crypto.randomUUID
+  title: string;
+  rationale: string;
+  bucket: 'inbox' | 'shortlist';
+  createdAt: string;     // ISO
+  sourceRefs: IdeaSourceRef[];
+  score: number;         // 0..1, LLM-assigned
+}

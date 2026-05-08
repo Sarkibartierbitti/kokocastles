@@ -1,4 +1,4 @@
-import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 
 declare const browser: {
@@ -29,6 +29,7 @@ const KEY = {
   cacheLruCap: 'koko.cacheLruCap',
   databanks: 'koko.databanks',
   hiddenPrefix: 'koko.hidden.',
+  ideas: 'koko.ideas',
 } as const;
 
 const cache = new Map<string, unknown>();
@@ -241,6 +242,23 @@ export const storage = {
       out.add(`${rest.slice(0, dot)}::${rest.slice(dot + 1)}`);
     }
     return out;
+  },
+
+  getIdeas: () => getCached<Idea[]>(KEY.ideas, []),
+
+  addIdeas: async (newOnes: Idea[]) => {
+    const list = [...storage.getIdeas(), ...newOnes];
+    await writeThrough(KEY.ideas, list);
+  },
+
+  moveIdeaBucket: async (id: string, bucket: 'inbox' | 'shortlist') => {
+    const list = storage.getIdeas().map((i) => (i.id === id ? { ...i, bucket } : i));
+    await writeThrough(KEY.ideas, list);
+  },
+
+  deleteIdea: async (id: string) => {
+    const list = storage.getIdeas().filter((i) => i.id !== id);
+    await writeThrough(KEY.ideas, list);
   },
 };
 
