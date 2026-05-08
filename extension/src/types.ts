@@ -65,3 +65,16 @@ export interface DeepAnalysis {
   pacing: { avgCutSec: number; rhythm: string };
   techniques: string[];
 }
+
+export interface DatabankVideoRef {
+  platform: PlatformId;
+  videoId: string;
+  addedAt: string; // ISO date
+}
+
+export interface Databank {
+  id: string;          // crypto.randomUUID
+  name: string;
+  createdAt: string;   // ISO
+  videoRefs: DatabankVideoRef[];
+}
