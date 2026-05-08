@@ -83,7 +83,7 @@ function readYtInitialData(): Promise<Record<string, unknown> | null> {
     script.textContent = `(function(){try{window.dispatchEvent(new CustomEvent(${JSON.stringify(eventName)},{detail:window.ytInitialData||null}));}catch(e){window.dispatchEvent(new CustomEvent(${JSON.stringify(eventName)},{detail:null}));}})();`;
     document.documentElement.appendChild(script);
     script.remove();
-    setTimeout(() => { window.removeEventListener(eventName, onEvent); resolve(null); }, 3000);
+    setTimeout(() => { window.removeEventListener(eventName, onEvent); resolve(null); }, 8000);
   });
 }
 

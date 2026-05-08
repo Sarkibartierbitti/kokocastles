@@ -84,8 +84,8 @@ async function handleScrapeUrl(url: string, kind: 'channel' | 'search'): Promise
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       browser.tabs.onUpdated.removeListener(listener);
-      reject(new Error('tab load timeout (8s)'));
-    }, 8_000);
+      reject(new Error('tab load timeout (15s) — YouTube did not finish loading. Slow network or CAPTCHA gate?'));
+    }, 15_000);
     function listener(updatedId: number, change: { status?: string }) {
       if (updatedId === tabId && change.status === 'complete') {
         clearTimeout(timer);
@@ -154,7 +154,10 @@ export default defineBackground(() => {
     if (msg.type === 'scrape-active-tab') {
       handleScrapeActiveTab().then(
         (payload) => sendResponse({ type: 'scrape-result', payload }),
-        (err: string) => sendResponse({ type: 'scrape-error', message: err }),
+        (err: unknown) => sendResponse({
+          type: 'scrape-error',
+          message: err instanceof Error ? err.message : String(err),
+        }),
       );
       return true;
     }
