@@ -1,4 +1,4 @@
-import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TriageResult } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 
 declare const browser: {
@@ -19,6 +19,7 @@ const KEY = {
   watchlist: 'koko.watchlist',
   triagePrefix: 'koko.triage.',
   deepPrefix: 'koko.deep.',
+  transcriptPrefix: 'koko.transcript.',
   persona: 'koko.persona',
   outlierThreshold: 'koko.outlierThreshold',
   ownChannel: 'koko.ownChannel',
@@ -52,6 +53,7 @@ async function writeThrough<T>(key: string, value: T): Promise<void> {
 
 function triageKey(p: PlatformId, id: string) { return `${KEY.triagePrefix}${p}.${id}`; }
 function deepKey(p: PlatformId, id: string) { return `${KEY.deepPrefix}${p}.${id}`; }
+function transcriptKey(p: PlatformId, id: string) { return `${KEY.transcriptPrefix}${p}.${id}`; }
 
 let databankIndex: Map<string, Set<string>> = new Map();
 
@@ -176,6 +178,45 @@ export const storage = {
     );
     await writeThrough(KEY.databanks, list);
     rebuildDatabankIndex();
+  },
+
+  getTranscript: async (platform: PlatformId, videoId: string): Promise<TranscriptSegment[] | null> => {
+    const k = transcriptKey(platform, videoId);
+    if (cache.has(k)) return (cache.get(k) ?? null) as TranscriptSegment[] | null;
+    const r = await browser.storage.local.get(k);
+    const v = (r[k] ?? null) as TranscriptSegment[] | null;
+    cache.set(k, v);
+    return v;
+  },
+  setTranscript: (platform: PlatformId, videoId: string, segs: TranscriptSegment[]) =>
+    writeThrough(transcriptKey(platform, videoId), segs),
+
+  getAllDeepEntries: (): Array<{ platform: PlatformId; videoId: string; deep: DeepAnalysis }> => {
+    const out: Array<{ platform: PlatformId; videoId: string; deep: DeepAnalysis }> = [];
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith(KEY.deepPrefix)) continue;
+      const rest = k.slice(KEY.deepPrefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) continue;
+      const platform = rest.slice(0, dot) as PlatformId;
+      const videoId = rest.slice(dot + 1);
+      if (v) out.push({ platform, videoId, deep: v as DeepAnalysis });
+    }
+    return out;
+  },
+
+  getAllTranscriptEntries: (): Array<{ platform: PlatformId; videoId: string; segments: TranscriptSegment[] }> => {
+    const out: Array<{ platform: PlatformId; videoId: string; segments: TranscriptSegment[] }> = [];
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith(KEY.transcriptPrefix)) continue;
+      const rest = k.slice(KEY.transcriptPrefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) continue;
+      const platform = rest.slice(0, dot) as PlatformId;
+      const videoId = rest.slice(dot + 1);
+      if (v) out.push({ platform, videoId, segments: v as TranscriptSegment[] });
+    }
+    return out;
   },
 };
 
