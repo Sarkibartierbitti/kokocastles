@@ -1,4 +1,5 @@
-import type { Channel, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TriageResult } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, LLMModelId, LLMProvider, Persona, PlatformId, TriageResult } from '~/types';
+import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 
 declare const browser: {
   storage: {
@@ -25,6 +26,7 @@ const KEY = {
   throttleConcurrency: 'koko.throttleConcurrency',
   throttleJitterMs: 'koko.throttleJitterMs',
   cacheLruCap: 'koko.cacheLruCap',
+  databanks: 'koko.databanks',
 } as const;
 
 const cache = new Map<string, unknown>();
@@ -35,6 +37,7 @@ async function hydrate(): Promise<void> {
   const all = await browser.storage.local.get(null);
   for (const [k, v] of Object.entries(all)) cache.set(k, v);
   hydrated = true;
+  rebuildDatabankIndex();
 }
 
 function getCached<T>(key: string, fallback: T): T {
@@ -49,6 +52,13 @@ async function writeThrough<T>(key: string, value: T): Promise<void> {
 
 function triageKey(p: PlatformId, id: string) { return `${KEY.triagePrefix}${p}.${id}`; }
 function deepKey(p: PlatformId, id: string) { return `${KEY.deepPrefix}${p}.${id}`; }
+
+let databankIndex: Map<string, Set<string>> = new Map();
+
+function rebuildDatabankIndex() {
+  const list = getCached<Databank[]>(KEY.databanks, []);
+  databankIndex = buildIndex(list);
+}
 
 export const storage = {
   hydrate,
@@ -121,6 +131,52 @@ export const storage = {
 
   getCacheLruCap: () => getCached<number>(KEY.cacheLruCap, 10000),
   setCacheLruCap: (v: number) => writeThrough(KEY.cacheLruCap, v),
+
+  getDatabanks: () => getCached<Databank[]>(KEY.databanks, []),
+
+  getDatabankIndex: () => databankIndex,
+
+  createDatabank: async (name: string): Promise<Databank> => {
+    const err = validateName(name);
+    if (err) throw new Error(err);
+    const list = storage.getDatabanks();
+    const db = newDatabank(name);
+    list.push(db);
+    await writeThrough(KEY.databanks, list);
+    rebuildDatabankIndex();
+    return db;
+  },
+
+  renameDatabank: async (id: string, name: string): Promise<void> => {
+    const err = validateName(name);
+    if (err) throw new Error(err);
+    const list = storage.getDatabanks().map((d) => (d.id === id ? { ...d, name: name.trim() } : d));
+    await writeThrough(KEY.databanks, list);
+  },
+
+  deleteDatabank: async (id: string): Promise<void> => {
+    const list = storage.getDatabanks().filter((d) => d.id !== id);
+    await writeThrough(KEY.databanks, list);
+    rebuildDatabankIndex();
+  },
+
+  addToDatabank: async (id: string, ref: { platform: PlatformId; videoId: string }): Promise<void> => {
+    const newRef: DatabankVideoRef = { ...ref, addedAt: new Date().toISOString() };
+    const list = storage.getDatabanks().map((d) =>
+      d.id === id ? { ...d, videoRefs: dedupeRefs([...d.videoRefs, newRef]) } : d
+    );
+    await writeThrough(KEY.databanks, list);
+    rebuildDatabankIndex();
+  },
+
+  removeFromDatabank: async (id: string, ref: { platform: PlatformId; videoId: string }): Promise<void> => {
+    const k = refKey(ref);
+    const list = storage.getDatabanks().map((d) =>
+      d.id === id ? { ...d, videoRefs: d.videoRefs.filter((r) => refKey(r) !== k) } : d
+    );
+    await writeThrough(KEY.databanks, list);
+    rebuildDatabankIndex();
+  },
 };
 
 export type { LLMModelId, LLMProvider, PlatformId };
