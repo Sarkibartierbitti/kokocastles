@@ -5,6 +5,7 @@ import { storage } from '~/lib/storage';
 import { detectProvider } from '~/lib/llm/detect';
 import { PROVIDERS, getProvider } from '~/lib/llm/providers';
 import type { LLMProvider } from '~/lib/llm/types';
+import type { Channel } from '~/types';
 
 export default function Settings() {
   const [llmKey, setLlmKey] = useState('');
@@ -12,12 +13,24 @@ export default function Settings() {
   const [llmModel, setLlmModel] = useState<string>('');
   const [youtubeKey, setYoutubeKey] = useState('');
   const [saved, setSaved] = useState(false);
+  const [outlierThreshold, setOutlierThreshold] = useState(1.5);
+  const [refreshIntervalHours, setRefreshIntervalHours] = useState(6);
+  const [throttleConcurrency, setThrottleConcurrency] = useState(2);
+  const [throttleJitterMs, setThrottleJitterMs] = useState(2500);
+  const [cacheLruCap, setCacheLruCap] = useState(10000);
+  const [ownChannel, setOwnChannel] = useState<Channel | null>(null);
 
   useEffect(() => {
     setLlmKey(storage.getLLMKey());
     setLlmProvider(storage.getLLMProvider());
     setLlmModel(storage.getLLMModel());
     setYoutubeKey(storage.getYoutubeKey());
+    setOutlierThreshold(storage.getOutlierThreshold());
+    setRefreshIntervalHours(storage.getRefreshIntervalHours());
+    setThrottleConcurrency(storage.getThrottleConcurrency());
+    setThrottleJitterMs(storage.getThrottleJitterMs());
+    setCacheLruCap(storage.getCacheLruCap());
+    setOwnChannel(storage.getOwnChannel());
   }, []);
 
   const detected = useMemo(() => detectProvider(llmKey), [llmKey]);
@@ -84,6 +97,12 @@ export default function Settings() {
     await storage.setLLMModel(finalModel);
     setLlmModel(finalModel);
     await storage.setYoutubeKey(youtubeKey.trim());
+    await storage.setOutlierThreshold(outlierThreshold);
+    await storage.setRefreshIntervalHours(refreshIntervalHours);
+    await storage.setThrottleConcurrency(throttleConcurrency);
+    await storage.setThrottleJitterMs(throttleJitterMs);
+    await storage.setCacheLruCap(cacheLruCap);
+    await storage.setOwnChannel(ownChannel);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -168,6 +187,44 @@ export default function Settings() {
           placeholder="AIza..."
           hint="Free 10k units/day per Google Cloud project."
         />
+      </section>
+
+      <section className="koko-card p-6 space-y-4">
+        <h2 className="text-lg font-display font-semibold">Analysis defaults</h2>
+
+        <div className="space-y-1">
+          <label htmlFor="outlier-threshold" className="text-sm font-medium text-slate-700">
+            Outlier threshold (views ÷ channel mean)
+          </label>
+          <input
+            id="outlier-threshold"
+            type="number"
+            step="0.1"
+            min="1"
+            max="10"
+            value={outlierThreshold}
+            onChange={(e) => setOutlierThreshold(Number(e.target.value))}
+            className="w-32 rounded-lg border border-sky-200 px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-slate-500">A video counts as an outlier when its views ÷ channel mean ≥ this number. Default 1.5.</p>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="cache-lru-cap" className="text-sm font-medium text-slate-700">
+            Analysis cache cap
+          </label>
+          <input
+            id="cache-lru-cap"
+            type="number"
+            step="1000"
+            min="1000"
+            max="100000"
+            value={cacheLruCap}
+            onChange={(e) => setCacheLruCap(Number(e.target.value))}
+            className="w-32 rounded-lg border border-sky-200 px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-slate-500">Max number of cached analyses + transcripts before LRU eviction. Default 10000.</p>
+        </div>
       </section>
 
       <div className="flex items-center gap-3">
