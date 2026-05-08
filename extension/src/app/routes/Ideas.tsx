@@ -1,11 +1,5 @@
-import ComingSoon from '~/app/components/ComingSoon';
+import IdeasRoute from './IdeasRoute';
 
 export default function Ideas() {
-  return (
-    <ComingSoon
-      kind="ideas"
-      phase={4}
-      description="Inbox / Shortlist buckets generated from analyzed videos or selected databanks."
-    />
-  );
+  return <IdeasRoute />;
 }
