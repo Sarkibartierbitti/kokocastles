@@ -1,0 +1,11 @@
+[      41ms] TypeError: Cannot read properties of undefined (reading 'local')
+    at Object.gr [as hydrate] (http://localhost:8765/chunks/sidebar-B68bspFj.js:11:29314)
+    at http://localhost:8765/chunks/sidebar-B68bspFj.js:73:74486
+    at Gc (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:91940)
+    at jl (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107116)
+    at Al (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107000)
+    at jl (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107881)
+    at Al (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107000)
+    at jl (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107881)
+    at Al (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107000)
+    at jl (http://localhost:8765/chunks/sidebar-B68bspFj.js:8:107096)

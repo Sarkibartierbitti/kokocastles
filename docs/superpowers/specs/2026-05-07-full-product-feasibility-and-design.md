@@ -439,6 +439,13 @@ The planning routine MAY refine:
 - Every 🟡 names its compromise.
 - Every 🔴 names its degradation strategy.
 - Phases are ordered such that early phases unblock later ones (Persona +
+## 8. Handoff to planning routine
+
+This spec is the input to `superpowers:writing-plans`. Expected output: one
+plan per phase under
+`docs/superpowers/plans/2026-05-07-phase-<N>-<slug>.md`. Phase 1 plan must be
+detailed enough that the implementation routine 30 min later can run
+`superpowers:executing-pl
   Databanks before Writer; Analyze shell before Hooks/Scripts sub-pages).
 - All work fits inside the WXT extension; the only server surface is the
   existing transcript proxy.

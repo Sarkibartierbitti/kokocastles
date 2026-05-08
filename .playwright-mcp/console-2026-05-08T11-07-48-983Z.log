@@ -1,0 +1,4 @@
+[      13ms] TypeError: Cannot redefine property: chrome
+    at Object.defineProperty (<anonymous>)
+    at http://localhost:8765/sidebar-mocked.html:27:14
+    at http://localhost:8765/sidebar-mocked.html:28:7
