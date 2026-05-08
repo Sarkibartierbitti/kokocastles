@@ -227,6 +227,55 @@ export default function Settings() {
         </div>
       </section>
 
+      <section className="koko-card p-6 space-y-4">
+        <h2 className="text-lg font-display font-semibold">Throttling &amp; refresh</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <label htmlFor="throttle-concurrency" className="text-sm font-medium text-slate-700">Scrape concurrency</label>
+            <input
+              id="throttle-concurrency"
+              type="number"
+              min="1"
+              max="5"
+              value={throttleConcurrency}
+              onChange={(e) => setThrottleConcurrency(Number(e.target.value))}
+              className="w-full rounded-lg border border-sky-200 px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-slate-500">Max parallel hidden-tab scrapes. Default 2.</p>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="throttle-jitter" className="text-sm font-medium text-slate-700">Jitter (ms)</label>
+            <input
+              id="throttle-jitter"
+              type="number"
+              min="0"
+              max="10000"
+              step="100"
+              value={throttleJitterMs}
+              onChange={(e) => setThrottleJitterMs(Number(e.target.value))}
+              className="w-full rounded-lg border border-sky-200 px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-slate-500">Random delay between scrapes. Higher = less CAPTCHA risk.</p>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="refresh-interval" className="text-sm font-medium text-slate-700">Refresh interval (hours)</label>
+            <input
+              id="refresh-interval"
+              type="number"
+              min="1"
+              max="48"
+              value={refreshIntervalHours}
+              onChange={(e) => setRefreshIntervalHours(Number(e.target.value))}
+              className="w-full rounded-lg border border-sky-200 px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-slate-500">How often own-channel polling runs. Default 6h.</p>
+          </div>
+        </div>
+      </section>
+
       <div className="flex items-center gap-3">
         <button onClick={save} className="koko-btn">
           Save

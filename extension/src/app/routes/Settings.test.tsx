@@ -46,3 +46,36 @@ describe('Settings — analysis defaults', () => {
     });
   });
 });
+
+describe('Settings — throttling + refresh', () => {
+  it('renders concurrency input with default 2', async () => {
+    await renderSettings();
+    const input = await screen.findByLabelText(/scrape concurrency/i) as HTMLInputElement;
+    expect(input.value).toBe('2');
+  });
+
+  it('renders jitter input with default 2500', async () => {
+    await renderSettings();
+    const input = await screen.findByLabelText(/jitter/i) as HTMLInputElement;
+    expect(input.value).toBe('2500');
+  });
+
+  it('renders refresh interval with default 6', async () => {
+    await renderSettings();
+    const input = await screen.findByLabelText(/refresh interval/i) as HTMLInputElement;
+    expect(input.value).toBe('6');
+  });
+
+  it('persists all three on save', async () => {
+    await renderSettings();
+    fireEvent.change(await screen.findByLabelText(/scrape concurrency/i), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/jitter/i), { target: { value: '4000' } });
+    fireEvent.change(screen.getByLabelText(/refresh interval/i), { target: { value: '12' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() => {
+      expect(fakeStore['koko.throttleConcurrency']).toBe(3);
+      expect(fakeStore['koko.throttleJitterMs']).toBe(4000);
+      expect(fakeStore['koko.refreshIntervalHours']).toBe(12);
+    });
+  });
+});
