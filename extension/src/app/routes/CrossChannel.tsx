@@ -9,7 +9,11 @@ interface MergedRow extends ScrapedVideo {
   channelTitle: string;
 }
 
-export default function CrossChannel() {
+interface Props {
+  videoFilter?: (v: { platform: string; videoId: string }) => boolean;
+}
+
+export default function CrossChannel({ videoFilter }: Props = {}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -30,8 +34,11 @@ export default function CrossChannel() {
       }
     }
     rows.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
-    return rows.slice(0, 50);
-  }, [results]);
+    const limited = rows.slice(0, 50);
+    return videoFilter
+      ? limited.filter((v) => videoFilter({ platform: 'youtube', videoId: v.videoId }))
+      : limited;
+  }, [results, videoFilter]);
 
   async function run() {
     if (selected.size === 0) return;
