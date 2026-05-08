@@ -38,16 +38,16 @@ describe('Analyze route', () => {
     expect(await screen.findByTestId('cross-channel-stub')).toBeInTheDocument();
   });
 
-  it('switches to Hooks sub-page (ComingSoon)', async () => {
+  it('switches to Hooks sub-page', async () => {
     await renderRoute();
     fireEvent.click(screen.getByRole('tab', { name: /hooks/i }));
-    expect(screen.getByRole('heading', { name: /hooks/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no hooks yet/i)).toBeInTheDocument();
     expect(screen.queryByTestId('cross-channel-stub')).not.toBeInTheDocument();
   });
 
-  it('switches to Scripts sub-page (ComingSoon)', async () => {
+  it('switches to Scripts sub-page', async () => {
     await renderRoute();
     fireEvent.click(screen.getByRole('tab', { name: /scripts/i }));
-    expect(screen.getByRole('heading', { name: /scripts/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no scripts yet/i)).toBeInTheDocument();
   });
 });

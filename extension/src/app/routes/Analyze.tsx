@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import CrossChannel from '~/app/routes/CrossChannel';
-import ComingSoon from '~/app/components/ComingSoon';
+import HooksSubPage from '~/app/routes/HooksSubPage';
+import ScriptsSubPage from '~/app/routes/ScriptsSubPage';
 
 type SubPage = 'videos' | 'hooks' | 'scripts';
 
@@ -24,8 +25,8 @@ export default function Analyze() {
         ))}
       </div>
       {sub === 'videos' ? <CrossChannel /> : null}
-      {sub === 'hooks' ? <ComingSoon kind="hooks" phase={3} description="Aggregated hooks from analyzed videos. Lands in Phase 3." /> : null}
-      {sub === 'scripts' ? <ComingSoon kind="scripts" phase={3} description="Full transcripts from analyzed videos. Lands in Phase 3." /> : null}
+      {sub === 'hooks' ? <HooksSubPage /> : null}
+      {sub === 'scripts' ? <ScriptsSubPage /> : null}
     </div>
   );
 }
