@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getActiveTab, scrapeActiveTab, subscribeActiveTab } from '~/lib/active-tab-bridge';
-import { uniqueChannelsFromSearch } from '~/lib/niche-bridge';
+import { scrapeChannelById, uniqueChannelsFromSearch } from '~/lib/niche-bridge';
 import type { ActiveTabInfo, ScrapeResult } from '~/lib/messaging';
 import { storage } from '~/lib/storage';
 import type { Channel } from '~/types';
@@ -27,7 +27,21 @@ export default function ActiveTabCard({ onResult }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      const r = await scrapeActiveTab();
+      let r = await scrapeActiveTab();
+      // Active-tab channel scrape reads whatever YT served on the current
+      // page. On /@handle (Home/Featured tab) the Videos tab content is
+      // NOT in ytInitialData, so videos.length === 0. Retry once via the
+      // hidden-tab /videos path (scrapeChannelById uses /channel/<id>/videos
+      // which always has the uploads grid in its ytInitialData).
+      if (r.kind === 'channel' && r.videos.length === 0 && r.channelId) {
+        console.log('[koko active-tab] zero videos on home tab — retrying via hidden /videos tab for', r.channelId);
+        try {
+          const refetched = await scrapeChannelById(r.channelId);
+          r = { kind: 'channel', channelId: refetched.channelId, channelTitle: refetched.channelTitle || r.channelTitle, videos: refetched.videos };
+        } catch (e) {
+          console.warn('[koko active-tab] /videos retry failed; keeping zero-video result:', e instanceof Error ? e.message : e);
+        }
+      }
       setResult(r);
       if (r.kind === 'channel') {
         const channel: Channel = {
