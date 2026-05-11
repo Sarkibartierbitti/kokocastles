@@ -4,7 +4,7 @@ import { makeAnthropicAdapter } from './anthropic';
 import { makeOpenAICompatAdapter } from './openaiCompat';
 import { makeGeminiAdapter } from './gemini';
 import { getProvider } from './providers';
-import type { LLMProvider, LLMTask } from './types';
+import type { LLMModelId, LLMProvider, LLMTask } from './types';
 import { storage } from '../storage';
 import { activity } from '../activity';
 
@@ -30,6 +30,8 @@ export interface CallLLMArgs<T> {
   toolDescription: string;
   schema: z.ZodType<T>;
   maxTokens: number;
+  /** Per-call model override. If set, used instead of storage.getLLMModel(). Does not mutate Settings. */
+  modelOverride?: LLMModelId;
 }
 
 export async function callLLM<T>(args: CallLLMArgs<T>): Promise<T> {
@@ -40,7 +42,7 @@ export async function callLLM<T>(args: CallLLMArgs<T>): Promise<T> {
   }
   const def = getProvider(provider);
   if (!def) throw new Error(`Unknown provider: ${provider}`);
-  const stored = storage.getLLMModel();
+  const stored = args.modelOverride || storage.getLLMModel();
   const modelDef =
     (stored ? def.models.find((m) => m.id === stored) : undefined) ?? def.models[0];
   if (!modelDef) throw new Error(`No models registered for provider ${provider}`);

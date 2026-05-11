@@ -1,8 +1,10 @@
 import { callLLM, type ContentBlock } from './index';
 import { storage } from '../storage';
-import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema } from '../prompts';
+import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema, writerSchema } from '../prompts';
 import { fullText, sliceByTime } from '../transcript';
-import type { DeepAnalysis, Idea, IdeaSourceRef, Persona, PlatformId, TranscriptSegment, TriageResult, Video } from '../../types';
+import { buildWriterPrompt, type DatabankBundle } from '../writerPrompt';
+import type { DeepAnalysis, Idea, IdeaSourceRef, Persona, PlatformId, TranscriptSegment, TriageResult, Video, WriterContextRef, WriterDraft } from '../../types';
+import type { LLMModelId } from './types';
 
 export async function imageUrlToBase64(url: string): Promise<{ data: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' }> {
   const res = await fetch(url);
@@ -158,4 +160,39 @@ export async function generateIdeas({ deepEntries, persona }: IdeasInput): Promi
     sourceRefs: refs,
     score: i.score,
   }));
+}
+
+export interface GenerateScriptArgs {
+  topic: string;
+  context: WriterContextRef;
+  persona: Persona | null;
+  databankBundles: DatabankBundle[];
+  modelOverride?: LLMModelId;
+}
+
+export async function generateScript(args: GenerateScriptArgs): Promise<WriterDraft> {
+  const userPrompt = buildWriterPrompt({
+    topic: args.topic,
+    context: args.context,
+    persona: args.persona,
+    databankBundles: args.databankBundles,
+  });
+  const tool = taskTools.writer;
+  const result = await callLLM<{ script: string }>({
+    task: 'writer',
+    systemPrompt: systemPrompts.writer,
+    content: [{ type: 'text', text: userPrompt }],
+    toolName: tool.name,
+    toolDescription: tool.description ?? 'record script',
+    schema: writerSchema,
+    maxTokens: 4000,
+    modelOverride: args.modelOverride,
+  });
+  const usedModel = args.modelOverride || storage.getLLMModel() || 'unknown';
+  return {
+    id: crypto.randomUUID(),
+    model: usedModel,
+    contentMd: result.script,
+    createdAt: new Date().toISOString(),
+  };
 }

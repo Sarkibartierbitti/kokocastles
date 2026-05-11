@@ -93,3 +93,29 @@ export interface Idea {
   sourceRefs: IdeaSourceRef[];
   score: number;         // 0..1, LLM-assigned
 }
+
+export interface WriterContextRef {
+  usePersona: boolean;
+  databankIds: string[];
+  files: { name: string; text: string }[];
+}
+
+export interface WriterDraft {
+  id: string;            // crypto.randomUUID
+  model: string;         // LLMModelId used for this draft
+  contentMd: string;     // markdown body returned by the LLM
+  createdAt: string;     // ISO
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsd?: number;
+}
+
+export interface WriterThread {
+  id: string;            // crypto.randomUUID
+  title: string;
+  topic: string;
+  context: WriterContextRef;
+  drafts: WriterDraft[];
+  createdAt: string;
+  updatedAt: string;
+}

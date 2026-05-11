@@ -1,4 +1,4 @@
-import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult, WriterDraft, WriterThread } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 
 declare const browser: {
@@ -31,6 +31,7 @@ const KEY = {
   hiddenPrefix: 'koko.hidden.',
   ideas: 'koko.ideas',
   ytQuotaToday: 'koko.ytQuotaToday',
+  writerThreads: 'koko.writerThreads',
 } as const;
 
 export interface YtQuotaToday {
@@ -277,6 +278,31 @@ export const storage = {
     const cur = storage.getYtQuotaToday();
     const next: YtQuotaToday = { date: cur.date, unitsUsed: cur.unitsUsed + units };
     await writeThrough(KEY.ytQuotaToday, next);
+  },
+
+  getWriterThreads: () => getCached<WriterThread[]>(KEY.writerThreads, []),
+
+  upsertWriterThread: async (t: WriterThread): Promise<void> => {
+    const list = storage.getWriterThreads();
+    const i = list.findIndex((x) => x.id === t.id);
+    const next = i >= 0 ? list.map((x, idx) => (idx === i ? t : x)) : [t, ...list];
+    next.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    await writeThrough(KEY.writerThreads, next.slice(0, 50));
+  },
+
+  deleteWriterThread: async (id: string): Promise<void> => {
+    const list = storage.getWriterThreads().filter((t) => t.id !== id);
+    await writeThrough(KEY.writerThreads, list);
+  },
+
+  appendWriterDraft: async (threadId: string, draft: WriterDraft): Promise<void> => {
+    const list = storage.getWriterThreads();
+    const next = list.map((t) =>
+      t.id === threadId
+        ? { ...t, drafts: [...t.drafts, draft], updatedAt: new Date().toISOString() }
+        : t
+    );
+    await writeThrough(KEY.writerThreads, next);
   },
 };
 

@@ -1,0 +1,130 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+const fakeStore: Record<string, unknown> = {};
+(globalThis as Record<string, unknown>).browser = {
+  storage: {
+    local: {
+      get: vi.fn(async () => ({ ...fakeStore })),
+      set: vi.fn(async (items: Record<string, unknown>) => Object.assign(fakeStore, items)),
+      remove: vi.fn(async () => {}),
+    },
+  },
+};
+
+vi.mock('~/lib/llm/tasks', () => ({
+  generateScript: vi.fn(async () => ({
+    id: 'd-mock',
+    model: 'claude-sonnet-4-5',
+    contentMd: '# HOOK\nThis is a generated draft.',
+    createdAt: '2026-05-11T00:00:00Z',
+  })),
+}));
+
+beforeEach(() => {
+  for (const k of Object.keys(fakeStore)) delete fakeStore[k];
+  vi.resetModules();
+  vi.clearAllMocks();
+});
+
+async function renderRoute() {
+  const { storage } = await import('~/lib/storage');
+  await storage.hydrate();
+  const WriterRoute = (await import('./WriterRoute')).default;
+  return render(
+    <MemoryRouter>
+      <WriterRoute />
+    </MemoryRouter>
+  );
+}
+
+describe('WriterRoute', () => {
+  it('renders empty state when no threads', async () => {
+    await renderRoute();
+    expect(await screen.findByText(/no threads yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/pick a thread on the left/i)).toBeInTheDocument();
+  });
+
+  it('creates a thread and selects it', async () => {
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    await waitFor(() => {
+      expect((fakeStore['koko.writerThreads'] as unknown[])?.length).toBe(1);
+    });
+    expect(await screen.findByLabelText(/^title$/i)).toBeInTheDocument();
+  });
+
+  it('generates a draft and appends it', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    fakeStore['koko.llmModel'] = 'claude-sonnet-4-5';
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const topic = await screen.findByLabelText(/^topic$/i);
+    fireEvent.change(topic, { target: { value: 'About bread' } });
+    const genBtn = await screen.findByRole('button', { name: /^generate$/i });
+    fireEvent.click(genBtn);
+    await waitFor(() => {
+      expect(screen.getByText(/HOOK/)).toBeInTheDocument();
+    });
+    const threads = fakeStore['koko.writerThreads'] as Array<{ drafts: unknown[] }>;
+    expect(threads[0].drafts).toHaveLength(1);
+  });
+
+  it('regenerate appends second draft', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    fakeStore['koko.llmModel'] = 'claude-sonnet-4-5';
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const topic = await screen.findByLabelText(/^topic$/i);
+    fireEvent.change(topic, { target: { value: 'About bread' } });
+    fireEvent.click(await screen.findByRole('button', { name: /^generate$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/HOOK/)).toBeInTheDocument();
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /^regenerate$/i }));
+    await waitFor(() => {
+      const threads = fakeStore['koko.writerThreads'] as Array<{ drafts: unknown[] }>;
+      expect(threads[0].drafts).toHaveLength(2);
+    });
+  });
+
+  it('deletes a thread', async () => {
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    await waitFor(() => {
+      expect((fakeStore['koko.writerThreads'] as unknown[])?.length).toBe(1);
+    });
+    const del = await screen.findByRole('button', { name: /delete thread/i });
+    fireEvent.click(del);
+    await waitFor(() => {
+      expect((fakeStore['koko.writerThreads'] as unknown[])?.length).toBe(0);
+    });
+  });
+
+  it('disables persona toggle when persona is empty', async () => {
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const checkbox = (await screen.findByLabelText(/use persona/i)) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+  });
+
+  it('enables persona toggle when persona is configured', async () => {
+    fakeStore['koko.persona'] = { niche: 'baking', context: '', styleSample: '', attachedDatabankIds: [] };
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const checkbox = (await screen.findByLabelText(/use persona/i)) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(false);
+  });
+
+  it('generate button disabled when topic is empty', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const btn = (await screen.findByRole('button', { name: /^generate$/i })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+});

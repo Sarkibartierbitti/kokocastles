@@ -43,6 +43,10 @@ export const ideasSchema = z.object({
   ).min(1).max(20),
 });
 
+export const writerSchema = z.object({
+  script: z.string().min(20),
+});
+
 export const synthesisSchema = z.object({
   sharedPatterns: z.array(
     z.object({
@@ -152,6 +156,17 @@ export const taskTools = {
       required: ['ideas'],
     },
   },
+  writer: {
+    name: 'record_script',
+    description: 'Record the finished short-form video script as markdown.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        script: { type: 'string', description: 'Markdown script with HOOK/BODY/CTA sections.' },
+      },
+      required: ['script'],
+    },
+  },
   synthesis: {
     name: 'record_synthesis',
     description: 'Cross-video pattern synthesis and a reusable script template.',
@@ -197,4 +212,6 @@ export const systemPrompts: Record<LLMTask, string> = {
     'You synthesize patterns across multiple analyzed short-form videos in the same niche, then produce a reusable script template. Be specific and actionable. Return JSON via the record_synthesis tool.',
   ideas:
     "You are a creative strategist generating short-form video ideas inspired by a creator's analyzed videos and persona. Output 8 to 12 distinct ideas. Each idea has: title (catchy hook style, ≤80 chars), rationale (why it might work for this creator, 1–2 sentences), score (0..1 confidence). Do not repeat themes already saturated in the source set.",
+  writer:
+    "You write short-form social-media video scripts. Output is markdown only, returned via the record_script tool. The script must have three sections: HOOK (≤8s spoken, attention-grabbing), BODY (main content), CTA (final call to action). Use [B-ROLL: ...] inline cues where helpful. Stay tight enough to read in 60 seconds. Match the persona's writing style if provided. Never invent statistics or facts not present in inputs.",
 };

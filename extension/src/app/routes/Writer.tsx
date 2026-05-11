@@ -1,11 +1,5 @@
-import ComingSoon from '~/app/components/ComingSoon';
+import WriterRoute from './WriterRoute';
 
 export default function Writer() {
-  return (
-    <ComingSoon
-      kind="writer"
-      phase={5}
-      description="Multi-step script generation pulling persona, databanks, and freeform topic context."
-    />
-  );
+  return <WriterRoute />;
 }
