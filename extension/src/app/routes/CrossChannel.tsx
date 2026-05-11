@@ -89,15 +89,21 @@ export default function CrossChannel({ videoFilter }: Props = {}) {
     ctrlRef.current = ctrl;
     try {
       const ids = Array.from(selected);
+      console.log('[koko crosschannel] batch scrape start, channels=', ids);
       const out = await batchScrapeChannels(ids, {
         concurrency: 2,
         jitterMs: 2500,
         signal: ctrl.signal,
         onProgress: (done, total) => setProgress({ done, total }),
       });
+      const okCount = out.filter((r) => r.ok).length;
+      const totalVideos = out.reduce((acc, r) => acc + (r.ok ? r.value.videos.length : 0), 0);
+      console.log('[koko crosschannel] batch scrape done. ok=', okCount, '/', out.length, ' videos=', totalVideos);
       setResults(out);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[koko crosschannel] batch scrape failed:', msg);
+      setErr(msg);
     } finally {
       setBusy(false);
       ctrlRef.current = null;
@@ -128,10 +134,17 @@ export default function CrossChannel({ videoFilter }: Props = {}) {
           ) : null}
         </div>
         {err ? <div className="text-sm text-rose-700">{err}</div> : null}
-        {failures.length > 0 && !busy ? (
-          <div className="text-xs text-amber-800">
-            {failures.length} channel{failures.length === 1 ? '' : 's'} failed:{' '}
-            {failures.map((f, i) => (f.ok ? null : <span key={i}>{f.error}{i < failures.length - 1 ? '; ' : ''}</span>))}
+        {!busy && results.length > 0 ? (
+          <div className="text-xs text-slate-600">
+            <strong>Scrape complete:</strong>{' '}
+            {results.filter((r) => r.ok).length}/{results.length} channels succeeded;{' '}
+            {results.reduce((acc, r) => acc + (r.ok ? r.value.videos.length : 0), 0)} videos total
+            {failures.length > 0 ? (
+              <span className="text-amber-800">
+                {' '}— failures:{' '}
+                {failures.map((f, i) => (f.ok ? null : <span key={i}>{f.error}{i < failures.length - 1 ? '; ' : ''}</span>))}
+              </span>
+            ) : null}
           </div>
         ) : null}
       </section>
