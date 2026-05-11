@@ -53,12 +53,31 @@ async function scrapeChannel(): Promise<ChannelData> {
   const tabs = ((data.contents as Record<string, unknown> | undefined)
     ?.twoColumnBrowseResultsRenderer as Record<string, unknown> | undefined)
     ?.tabs as unknown[] ?? [];
+  // Match the Videos tab by its endpoint URL (locale-agnostic), then by
+  // selected=true (the tab the URL landed on — should be /videos if we hit
+  // /channel/<id>/videos), then by title in any localized form, then by
+  // first tab with content. Title-only match used to fail on localized YT.
   let videoTab: unknown = null;
   for (const t of tabs) {
     const ttl = (t as Record<string, unknown>)?.tabRenderer as Record<string, unknown> | undefined;
-    if (ttl && (ttl as { title?: string }).title === 'Videos') {
-      videoTab = ttl;
-      break;
+    if (!ttl) continue;
+    const ep = ttl.endpoint as { commandMetadata?: { webCommandMetadata?: { url?: string } } } | undefined;
+    const url = ep?.commandMetadata?.webCommandMetadata?.url ?? '';
+    if (url.endsWith('/videos')) { videoTab = ttl; break; }
+  }
+  if (!videoTab) {
+    for (const t of tabs) {
+      const ttl = (t as Record<string, unknown>)?.tabRenderer as Record<string, unknown> | undefined;
+      if (ttl && (ttl as { selected?: boolean }).selected === true) { videoTab = ttl; break; }
+    }
+  }
+  if (!videoTab) {
+    for (const t of tabs) {
+      const ttl = (t as Record<string, unknown>)?.tabRenderer as Record<string, unknown> | undefined;
+      if (ttl && /^(Videos|Видео|Vídeos|Vidéos|Videók|动画|動画|동영상|فيديوهات)$/i.test((ttl as { title?: string }).title ?? '')) {
+        videoTab = ttl;
+        break;
+      }
     }
   }
   if (!videoTab) {

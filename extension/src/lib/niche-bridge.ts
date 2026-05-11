@@ -3,7 +3,12 @@ import { runBatch, type BatchResult } from './batch-queue';
 import { activity } from './activity';
 
 const SEARCH_URL = (q: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
-const CHANNEL_URL = (id: string) => `https://www.youtube.com/channel/${encodeURIComponent(id)}`;
+// Hit /videos directly. Channel home page (/channel/<id>) defaults to the
+// "Featured" tab whose ytInitialData has curated sections instead of the
+// uploads grid — scrapeChannel() then returns 0 videos. /channel/<id>/videos
+// loads the Videos tab as the default tab, so ytInitialData contains the
+// gridVideoRenderer / richItemRenderer items we need.
+const CHANNEL_URL = (id: string) => `https://www.youtube.com/channel/${encodeURIComponent(id)}/videos`;
 
 async function scrapeUrlViaBackground(url: string, kind: 'channel' | 'search'): Promise<ScrapeResult> {
   const taskName = kind === 'search' ? 'scrape-search' : 'scrape-channel';
