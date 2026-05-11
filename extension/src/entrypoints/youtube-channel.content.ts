@@ -10,25 +10,30 @@ export default defineContentScript({
   ],
   runAt: 'document_idle',
   main() {
-    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // Firefox MV2: return a Promise from the listener. The resolved value
+    // becomes the response. The Chrome-style "return true + async
+    // sendResponse" pattern is unreliable on Firefox and produces
+    // "unexpected reply from content script" failures upstream.
+    browser.runtime.onMessage.addListener((message) => {
       const msg = message as { type?: string; kind?: string };
-      if (msg.type !== 'scrape' || msg.kind !== 'channel') return false;
-      scrapeChannel().then(
-        (data) => {
-          const reply: ContentToBg = {
+      if (msg.type !== 'scrape' || msg.kind !== 'channel') return undefined;
+      console.log('[koko channel-scrape] received scrape request');
+      return scrapeChannel().then(
+        (data): ContentToBg => {
+          console.log('[koko channel-scrape] success:', data.channelId, data.videos.length, 'videos');
+          return {
             type: 'scraped-channel',
             channelId: data.channelId,
             channelTitle: data.channelTitle,
             videos: data.videos,
           };
-          sendResponse(reply);
         },
-        (err: Error) => {
-          const reply: ContentToBg = { type: 'scrape-failed', message: err?.message ?? String(err) };
-          sendResponse(reply);
+        (err: unknown): ContentToBg => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('[koko channel-scrape] failed:', message);
+          return { type: 'scrape-failed', message };
         },
       );
-      return true; // keep message port open for async sendResponse
     });
   },
 });

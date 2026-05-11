@@ -5,20 +5,23 @@ export default defineContentScript({
   matches: ['https://www.youtube.com/results*'],
   runAt: 'document_idle',
   main() {
-    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // Firefox MV2: return a Promise from the listener. See
+    // youtube-channel.content.ts for the rationale — same bug.
+    browser.runtime.onMessage.addListener((message) => {
       const msg = message as { type?: string; kind?: string };
-      if (msg.type !== 'scrape' || msg.kind !== 'search') return false;
-      scrapeSearch().then(
-        (data) => {
-          const reply: ContentToBg = { type: 'scraped-search', query: data.query, results: data.results };
-          sendResponse(reply);
+      if (msg.type !== 'scrape' || msg.kind !== 'search') return undefined;
+      console.log('[koko search-scrape] received scrape request');
+      return scrapeSearch().then(
+        (data): ContentToBg => {
+          console.log('[koko search-scrape] success:', data.query, data.results.length, 'results');
+          return { type: 'scraped-search', query: data.query, results: data.results };
         },
-        (err: Error) => {
-          const reply: ContentToBg = { type: 'scrape-failed', message: err?.message ?? String(err) };
-          sendResponse(reply);
+        (err: unknown): ContentToBg => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('[koko search-scrape] failed:', message);
+          return { type: 'scrape-failed', message };
         },
       );
-      return true; // keep message port open for async sendResponse
     });
   },
 });
