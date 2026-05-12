@@ -94,6 +94,17 @@ export interface Idea {
   score: number;         // 0..1, LLM-assigned
 }
 
+export interface Hypothesis {
+  id: string;                  // crypto.randomUUID
+  name: string;
+  description: string;
+  manualVideoIds: string[];
+  applyToNext: number;         // 0..20
+  appliedAuto: string[];
+  seedSnapshotIds: string[];
+  createdAt: string;
+}
+
 export interface WriterContextRef {
   usePersona: boolean;
   databankIds: string[];

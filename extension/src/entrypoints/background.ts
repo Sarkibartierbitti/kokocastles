@@ -1,6 +1,8 @@
 import { defineBackground } from 'wxt/utils/define-background';
 import type { ActiveTabInfo, ContentToBg, ScrapeResult, SidebarToBg } from '~/lib/messaging';
 import type { TranscriptSegment } from '~/types';
+import { storage } from '~/lib/storage';
+import { setupOwnChannelAlarm } from '~/lib/alarms';
 
 interface Pending {
   resolve: (segments: TranscriptSegment[]) => void;
@@ -125,6 +127,11 @@ export default defineBackground(() => {
     if (change.url || change.title) void refreshActiveTab();
   });
   void refreshActiveTab();
+
+  void (async () => {
+    await storage.hydrate();
+    await setupOwnChannelAlarm();
+  })();
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const msg = message as SidebarToBg | ContentToBg;

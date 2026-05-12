@@ -1,4 +1,4 @@
-import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult, WriterDraft, WriterThread } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Hypothesis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult, Video, WriterDraft, WriterThread } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 
 declare const browser: {
@@ -32,6 +32,9 @@ const KEY = {
   ideas: 'koko.ideas',
   ytQuotaToday: 'koko.ytQuotaToday',
   writerThreads: 'koko.writerThreads',
+  hypotheses: 'koko.hypotheses',
+  ownChannelVideos: 'koko.ownChannelVideos',
+  ownChannelRefreshedAt: 'koko.ownChannelRefreshedAt',
 } as const;
 
 export interface YtQuotaToday {
@@ -304,6 +307,26 @@ export const storage = {
     );
     await writeThrough(KEY.writerThreads, next);
   },
+
+  getHypotheses: () => getCached<Hypothesis[]>(KEY.hypotheses, []),
+
+  upsertHypothesis: async (h: Hypothesis): Promise<void> => {
+    const list = storage.getHypotheses();
+    const i = list.findIndex((x) => x.id === h.id);
+    const next = i >= 0 ? list.map((x, idx) => (idx === i ? h : x)) : [h, ...list];
+    await writeThrough(KEY.hypotheses, next);
+  },
+
+  deleteHypothesis: async (id: string): Promise<void> => {
+    const list = storage.getHypotheses().filter((h) => h.id !== id);
+    await writeThrough(KEY.hypotheses, list);
+  },
+
+  getOwnChannelVideos: () => getCached<Video[]>(KEY.ownChannelVideos, []),
+  setOwnChannelVideos: (v: Video[]) => writeThrough(KEY.ownChannelVideos, v),
+
+  getOwnChannelRefreshedAt: () => getCached<string>(KEY.ownChannelRefreshedAt, ''),
+  setOwnChannelRefreshedAt: (v: string) => writeThrough(KEY.ownChannelRefreshedAt, v),
 };
 
 export type { LLMModelId, LLMProvider, PlatformId };

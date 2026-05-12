@@ -6,7 +6,7 @@ export default defineConfig({
     name: 'kokocastles',
     description: 'BYOK short-form video analysis — sidebar + content script',
     version: '0.2.0',
-    permissions: ['storage', 'tabs', 'activeTab', 'unlimitedStorage'],
+    permissions: ['storage', 'tabs', 'activeTab', 'unlimitedStorage', 'alarms'],
     host_permissions: [
       'https://www.youtube.com/*',
       'https://m.youtube.com/*',
