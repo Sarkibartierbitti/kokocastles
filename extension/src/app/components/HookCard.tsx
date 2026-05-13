@@ -1,12 +1,17 @@
 import type { HookEntry } from '~/lib/aggregators';
 import { platformVideoUrl } from '~/lib/export';
+import { storage } from '~/lib/storage';
 
 export default function HookCard({ entry }: { entry: HookEntry }) {
   const url = platformVideoUrl(entry.platform, entry.videoId);
+  const frame = storage.getFrame(entry.platform, entry.videoId);
   return (
     <article className="koko-card p-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
       <div className="space-y-1">
         <div className="text-[10px] uppercase tracking-wide text-slate-400">visual hook</div>
+        {frame ? (
+          <img src={frame} alt="captured hook frame" className="rounded w-full" />
+        ) : null}
         <div className="text-sm text-slate-700 italic">{entry.visualFormat || '—'}</div>
         <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-koko-pink-deep underline">
           watch ↗

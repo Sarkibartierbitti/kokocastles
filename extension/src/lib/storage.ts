@@ -39,6 +39,8 @@ const KEY = {
   hookCategoryPrefix: 'koko.hookCategory.',
   platformsEnabled: 'koko.platformsEnabled',
   platformWarnPrefix: 'koko.platformWarn.',
+  framesEnabled: 'koko.framesEnabled',
+  framePrefix: 'koko.frame.',
 } as const;
 
 export interface PlatformsEnabled {
@@ -77,6 +79,7 @@ function deepKey(p: PlatformId, id: string) { return `${KEY.deepPrefix}${p}.${id
 function transcriptKey(p: PlatformId, id: string) { return `${KEY.transcriptPrefix}${p}.${id}`; }
 function hiddenKey(p: PlatformId, id: string) { return `${KEY.hiddenPrefix}${p}.${id}`; }
 function hookCategoryKey(p: PlatformId, id: string) { return `${KEY.hookCategoryPrefix}${p}.${id}`; }
+function frameKey(p: PlatformId, id: string) { return `${KEY.framePrefix}${p}.${id}`; }
 
 let databankIndex: Map<string, Set<string>> = new Map();
 
@@ -357,6 +360,28 @@ export const storage = {
 
   setPlatformWarn: (p: PlatformId, msg: string | null) =>
     writeThrough(`${KEY.platformWarnPrefix}${p}`, msg),
+
+  getFramesEnabled: () => getCached<boolean>(KEY.framesEnabled, false),
+  setFramesEnabled: (v: boolean) => writeThrough(KEY.framesEnabled, v),
+
+  getFrame: (p: PlatformId, id: string): string =>
+    getCached<string>(frameKey(p, id), ''),
+  setFrame: (p: PlatformId, id: string, dataUrl: string) =>
+    writeThrough(frameKey(p, id), dataUrl),
+
+  getAllFrames: (): Map<string, string> => {
+    const out = new Map<string, string>();
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith(KEY.framePrefix)) continue;
+      const rest = k.slice(KEY.framePrefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) continue;
+      const platform = rest.slice(0, dot);
+      const videoId = rest.slice(dot + 1);
+      out.set(`${platform}::${videoId}`, String(v));
+    }
+    return out;
+  },
 
   getAllHookCategories: (): Map<string, HookCategory> => {
     const out = new Map<string, HookCategory>();

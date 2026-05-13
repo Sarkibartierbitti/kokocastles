@@ -18,6 +18,24 @@ export default function HooksSubPage() {
     return aggregateHooks(deeps, transcripts, categories);
   }, [categories]);
 
+  // Visual frame capture (Phase 10) — fire-and-forget; UI re-renders next mount.
+  useEffect(() => {
+    if (!storage.getFramesEnabled()) return;
+    const missing = hooks.filter(
+      (h) => h.platform === 'youtube' && !storage.getFrame(h.platform, h.videoId)
+    );
+    if (missing.length === 0) return;
+    (async () => {
+      const [{ enqueueFrameCapture }, bridge] = await Promise.all([
+        import('~/lib/frameQueue'),
+        import('~/lib/frameBridge'),
+      ]);
+      for (const h of missing) {
+        void enqueueFrameCapture(h.platform, h.videoId, bridge.captureFrameViaBackground);
+      }
+    })();
+  }, [hooks]);
+
   useEffect(() => {
     if (ranRef.current) return;
     const uncategorized = hooks.filter((h) => !h.category);

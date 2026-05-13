@@ -169,6 +169,48 @@ async function handleScrapeUrl(url: string, kind: 'channel' | 'search'): Promise
   throw new Error('unexpected reply from content script');
 }
 
+async function handleCaptureFrame(videoId: string, t = 2): Promise<string> {
+  const tab = await browser.tabs.create({
+    url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&mute=1`,
+    active: false,
+  });
+  if (tab.id == null) throw new Error('failed to open hidden tab');
+  const tabId = tab.id;
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      browser.tabs.onUpdated.removeListener(listener);
+      reject(new Error('tab load timeout (15s)'));
+    }, 15_000);
+    function listener(updatedId: number, change: { status?: string }) {
+      if (updatedId === tabId && change.status === 'complete') {
+        clearTimeout(timer);
+        browser.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+    browser.tabs.onUpdated.addListener(listener);
+  });
+
+  await new Promise((r) => setTimeout(r, 500));
+
+  let reply: { ok: boolean; dataUrl?: string; message?: string };
+  try {
+    reply = (await browser.tabs.sendMessage(tabId, { type: 'capture-frame', t })) as {
+      ok: boolean;
+      dataUrl?: string;
+      message?: string;
+    };
+  } catch (e) {
+    browser.tabs.remove(tabId).catch(() => {});
+    throw new Error(`frame content script did not respond (${e instanceof Error ? e.message : String(e)})`);
+  }
+  browser.tabs.remove(tabId).catch(() => {});
+
+  if (!reply?.ok) throw new Error(reply?.message ?? 'unknown frame capture failure');
+  return reply.dataUrl ?? '';
+}
+
 export default defineBackground(() => {
   browser.tabs.onActivated.addListener(() => { void refreshActiveTab(); });
   browser.tabs.onUpdated.addListener((_id, change) => {
@@ -221,6 +263,17 @@ export default defineBackground(() => {
       handleScrapeUrl(msg.url, msg.kind).then(
         (payload) => sendResponse({ type: 'scrape-result', payload }),
         (err: Error) => sendResponse({ type: 'scrape-error', message: err?.message ?? String(err) }),
+      );
+      return true;
+    }
+
+    if (msg.type === 'capture-frame-bg') {
+      handleCaptureFrame(msg.videoId, msg.t).then(
+        (dataUrl) => sendResponse({ type: 'frame-ok', dataUrl }),
+        (err: unknown) => sendResponse({
+          type: 'frame-err',
+          message: err instanceof Error ? err.message : String(err),
+        }),
       );
       return true;
     }

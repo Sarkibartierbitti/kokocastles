@@ -36,6 +36,7 @@ export type SidebarToBg =
   | { type: 'get-active-tab' }
   | { type: 'scrape-active-tab' }
   | { type: 'scrape-url'; url: string; kind: 'channel' | 'search' }
+  | { type: 'capture-frame-bg'; videoId: string; t?: number }
   | { type: 'ping' };
 
 export type BgToSidebar =
@@ -44,6 +45,8 @@ export type BgToSidebar =
   | { type: 'active-tab'; info: ActiveTabInfo | null }
   | { type: 'scrape-result'; payload: ScrapeResult }
   | { type: 'scrape-error'; message: string }
+  | { type: 'frame-ok'; dataUrl: string }
+  | { type: 'frame-err'; message: string }
   | { type: 'pong' };
 
 export type ContentToBg =

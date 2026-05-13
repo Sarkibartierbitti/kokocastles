@@ -22,6 +22,7 @@ export default function Settings() {
   const [ownChannelInput, setOwnChannelInput] = useState('');
   const [igEnabled, setIgEnabled] = useState(false);
   const [ttEnabled, setTtEnabled] = useState(false);
+  const [framesEnabled, setFramesEnabled] = useState(false);
 
   useEffect(() => {
     setLlmKey(storage.getLLMKey());
@@ -39,6 +40,7 @@ export default function Settings() {
     const pe = storage.getPlatformsEnabled();
     setIgEnabled(pe.instagram);
     setTtEnabled(pe.tiktok);
+    setFramesEnabled(storage.getFramesEnabled());
   }, []);
 
   const detected = useMemo(() => detectProvider(llmKey), [llmKey]);
@@ -127,6 +129,7 @@ export default function Settings() {
       }
     }
     await storage.setPlatformsEnabled({ instagram: igEnabled, tiktok: ttEnabled });
+    await storage.setFramesEnabled(framesEnabled);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -347,6 +350,14 @@ export default function Settings() {
             onChange={(e) => setTtEnabled(e.target.checked)}
           />
           Enable TikTok adapter
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={framesEnabled}
+            onChange={(e) => setFramesEnabled(e.target.checked)}
+          />
+          Capture visual hook frames (slow; opens a hidden tab per video)
         </label>
       </section>
 
