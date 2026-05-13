@@ -10,6 +10,8 @@ export default defineConfig({
     host_permissions: [
       'https://www.youtube.com/*',
       'https://m.youtube.com/*',
+      'https://www.instagram.com/*',
+      'https://www.tiktok.com/*',
       'https://api.anthropic.com/*',
       'https://api.openai.com/*',
       'https://generativelanguage.googleapis.com/*',

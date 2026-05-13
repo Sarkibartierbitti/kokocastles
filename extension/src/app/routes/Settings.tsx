@@ -20,6 +20,8 @@ export default function Settings() {
   const [cacheLruCap, setCacheLruCap] = useState(10000);
   const [ownChannel, setOwnChannel] = useState<Channel | null>(null);
   const [ownChannelInput, setOwnChannelInput] = useState('');
+  const [igEnabled, setIgEnabled] = useState(false);
+  const [ttEnabled, setTtEnabled] = useState(false);
 
   useEffect(() => {
     setLlmKey(storage.getLLMKey());
@@ -34,6 +36,9 @@ export default function Settings() {
     setOwnChannel(storage.getOwnChannel());
     const oc = storage.getOwnChannel();
     if (oc) setOwnChannelInput(`https://www.youtube.com/channel/${oc.channelId}`);
+    const pe = storage.getPlatformsEnabled();
+    setIgEnabled(pe.instagram);
+    setTtEnabled(pe.tiktok);
   }, []);
 
   const detected = useMemo(() => detectProvider(llmKey), [llmKey]);
@@ -121,6 +126,7 @@ export default function Settings() {
         // Keep previous value on resolve failure.
       }
     }
+    await storage.setPlatformsEnabled({ instagram: igEnabled, tiktok: ttEnabled });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -318,6 +324,30 @@ export default function Settings() {
             </div>
           ) : null}
         </div>
+      </section>
+
+      <section className="koko-card p-6 space-y-4">
+        <h2 className="text-lg font-display font-semibold">Experimental platforms</h2>
+        <p className="text-xs text-slate-500">
+          Off by default. Scrape adapters for Instagram + TikTok are best-effort: selectors drift,
+          and a yellow banner will surface on the active-tab card when scrape returns 0 videos.
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={igEnabled}
+            onChange={(e) => setIgEnabled(e.target.checked)}
+          />
+          Enable Instagram adapter
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={ttEnabled}
+            onChange={(e) => setTtEnabled(e.target.checked)}
+          />
+          Enable TikTok adapter
+        </label>
       </section>
 
       <div className="flex items-center gap-3">

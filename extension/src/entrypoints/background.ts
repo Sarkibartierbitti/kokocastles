@@ -18,21 +18,47 @@ const ACTIVE_TAB_KEY = 'koko.activeTab';
 function classifyUrl(url: string, title: string, tabId: number): ActiveTabInfo | null {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return null; }
-  if (!parsed.hostname.endsWith('youtube.com')) return null;
+  const host = parsed.hostname;
   const path = parsed.pathname;
-  const handleMatch = path.match(/^\/@([^/]+)/);
-  if (handleMatch) return { kind: 'channel', identifier: '@' + handleMatch[1], url, title, tabId };
-  const channelMatch = path.match(/^\/channel\/([^/]+)/);
-  if (channelMatch) return { kind: 'channel', identifier: channelMatch[1], url, title, tabId };
-  const altMatch = path.match(/^\/(?:c|user)\/([^/]+)/);
-  if (altMatch) return { kind: 'channel', identifier: altMatch[1], url, title, tabId };
-  if (path === '/results') {
-    const q = parsed.searchParams.get('search_query') ?? '';
-    if (q) return { kind: 'search', identifier: q, url, title, tabId };
+  if (host.endsWith('youtube.com')) {
+    const handleMatch = path.match(/^\/@([^/]+)/);
+    if (handleMatch) return { kind: 'channel', identifier: '@' + handleMatch[1], url, title, tabId };
+    const channelMatch = path.match(/^\/channel\/([^/]+)/);
+    if (channelMatch) return { kind: 'channel', identifier: channelMatch[1], url, title, tabId };
+    const altMatch = path.match(/^\/(?:c|user)\/([^/]+)/);
+    if (altMatch) return { kind: 'channel', identifier: altMatch[1], url, title, tabId };
+    if (path === '/results') {
+      const q = parsed.searchParams.get('search_query') ?? '';
+      if (q) return { kind: 'search', identifier: q, url, title, tabId };
+    }
+    if (path === '/watch') {
+      const v = parsed.searchParams.get('v');
+      if (v) return { kind: 'video', identifier: v, url, title, tabId };
+    }
+    return null;
   }
-  if (path === '/watch') {
-    const v = parsed.searchParams.get('v');
-    if (v) return { kind: 'video', identifier: v, url, title, tabId };
+  if (host.endsWith('instagram.com')) {
+    const seg = path.split('/').filter(Boolean)[0];
+    if (!seg) return null;
+    if (seg === 'reel' || seg === 'p' || seg === 'tv') {
+      const id = path.split('/').filter(Boolean)[1];
+      if (id) return { kind: 'video', identifier: id, url, title, tabId };
+    }
+    return { kind: 'channel', identifier: seg, url, title, tabId };
+  }
+  if (host.endsWith('tiktok.com')) {
+    const segs = path.split('/').filter(Boolean);
+    const first = segs[0] ?? '';
+    if (first.startsWith('@')) {
+      if (segs[1] === 'video' && segs[2]) {
+        return { kind: 'video', identifier: segs[2], url, title, tabId };
+      }
+      return { kind: 'channel', identifier: first, url, title, tabId };
+    }
+    if (first === 'video' && segs[1]) {
+      return { kind: 'video', identifier: segs[1], url, title, tabId };
+    }
+    return null;
   }
   return null;
 }
@@ -52,7 +78,7 @@ async function handleScrapeActiveTab(): Promise<ScrapeResult> {
   const r = await browser.storage.local.get(ACTIVE_TAB_KEY);
   const info = (r[ACTIVE_TAB_KEY] as ActiveTabInfo | null) ?? null;
   if (!info || info.kind === 'unknown' || info.kind === 'video') {
-    throw new Error('active tab is not a YouTube channel or search page');
+    throw new Error('active tab is not a channel or search page');
   }
   let reply: ContentToBg;
   try {
@@ -63,10 +89,32 @@ async function handleScrapeActiveTab(): Promise<ScrapeResult> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `content script did not respond (${msg}). Reload the YouTube tab if you installed/updated the extension after opening it.`,
+      `content script did not respond (${msg}). Reload the page if you installed/updated the extension after opening it.`,
     );
   }
   if (reply?.type === 'scraped-channel') {
+    // Detect selector drift: page loaded but no videos found — warn-flag the platform.
+    if (reply.videos.length === 0) {
+      const platform = info.url.includes('instagram.com')
+        ? 'instagram'
+        : info.url.includes('tiktok.com')
+          ? 'tiktok'
+          : null;
+      if (platform) {
+        await browser.storage.local.set({
+          [`koko.platformWarn.${platform}`]:
+            'Scrape returned 0 videos — selectors may have drifted. Open an issue or wait for an adapter update.',
+        });
+      }
+    } else {
+      // clear stale warn on success
+      const platform = info.url.includes('instagram.com')
+        ? 'instagram'
+        : info.url.includes('tiktok.com')
+          ? 'tiktok'
+          : null;
+      if (platform) await browser.storage.local.set({ [`koko.platformWarn.${platform}`]: null });
+    }
     return { kind: 'channel', videos: reply.videos, channelTitle: reply.channelTitle, channelId: reply.channelId };
   }
   if (reply?.type === 'scraped-search') {

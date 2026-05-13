@@ -37,7 +37,14 @@ const KEY = {
   ownChannelVideos: 'koko.ownChannelVideos',
   ownChannelRefreshedAt: 'koko.ownChannelRefreshedAt',
   hookCategoryPrefix: 'koko.hookCategory.',
+  platformsEnabled: 'koko.platformsEnabled',
+  platformWarnPrefix: 'koko.platformWarn.',
 } as const;
+
+export interface PlatformsEnabled {
+  instagram: boolean;
+  tiktok: boolean;
+}
 
 export interface YtQuotaToday {
   date: string;       // YYYY-MM-DD UTC
@@ -339,6 +346,17 @@ export const storage = {
 
   setHookCategory: (platform: PlatformId, videoId: string, category: HookCategory) =>
     writeThrough(hookCategoryKey(platform, videoId), category),
+
+  getPlatformsEnabled: (): PlatformsEnabled =>
+    getCached<PlatformsEnabled>(KEY.platformsEnabled, { instagram: false, tiktok: false }),
+
+  setPlatformsEnabled: (v: PlatformsEnabled) => writeThrough(KEY.platformsEnabled, v),
+
+  getPlatformWarn: (p: PlatformId): string | null =>
+    getCached<string | null>(`${KEY.platformWarnPrefix}${p}`, null),
+
+  setPlatformWarn: (p: PlatformId, msg: string | null) =>
+    writeThrough(`${KEY.platformWarnPrefix}${p}`, msg),
 
   getAllHookCategories: (): Map<string, HookCategory> => {
     const out = new Map<string, HookCategory>();
