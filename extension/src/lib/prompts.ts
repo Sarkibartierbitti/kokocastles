@@ -57,6 +57,18 @@ export const categorizeHookSchema = z.object({
   ),
 });
 
+export const writerClarifySchema = z.object({
+  questions: z.array(z.string().min(3)).min(1).max(8),
+});
+
+export const writerPersonalizeSchema = z.object({
+  options: z.array(z.string().min(3)).min(1).max(6),
+});
+
+export const writerRegenSchema = z.object({
+  paragraph: z.string().min(10),
+});
+
 export const synthesisSchema = z.object({
   sharedPatterns: z.array(
     z.object({
@@ -187,6 +199,37 @@ export const taskTools = {
       required: ['assignments'],
     },
   },
+  writerClarify: {
+    name: 'record_clarifying_questions',
+    description: 'Record short follow-up questions to refine the user\'s topic.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        questions: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+      },
+      required: ['questions'],
+    },
+  },
+  writerPersonalize: {
+    name: 'record_personalization_options',
+    description: 'Record distinct angle/twist options the user can pick from.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        options: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6 },
+      },
+      required: ['options'],
+    },
+  },
+  writerRegen: {
+    name: 'record_paragraph_rewrite',
+    description: 'Record a rewritten markdown paragraph that replaces a single paragraph in the draft.',
+    input_schema: {
+      type: 'object',
+      properties: { paragraph: { type: 'string' } },
+      required: ['paragraph'],
+    },
+  },
   writer: {
     name: 'record_script',
     description: 'Record the finished short-form video script as markdown.',
@@ -247,4 +290,10 @@ export const systemPrompts: Record<LLMTask, string> = {
     "You write short-form social-media video scripts. Output is markdown only, returned via the record_script tool. The script must have three sections: HOOK (≤8s spoken, attention-grabbing), BODY (main content), CTA (final call to action). Use [B-ROLL: ...] inline cues where helpful. Stay tight enough to read in 60 seconds. Match the persona's writing style if provided. Never invent statistics or facts not present in inputs.",
   categorizeHook:
     `You classify short-form video hooks into a fixed set of categories. Choose exactly one category per hook from this list: ${HOOK_CATEGORIES.join(', ')}. If no category fits, return 'Uncategorized'. Reply only via the record_hook_categories tool. No prose.`,
+  writerClarify:
+    'Ask 3–5 short follow-up questions that would help refine scope, audience, tone, or constraints for a short-form video script. Each question ≤120 characters; no multi-part questions. Return strict JSON via the record_clarifying_questions tool. No prose.',
+  writerPersonalize:
+    'Given the topic + clarifying answers, propose 3–4 DISTINCT angles ("twists") this short-form video could take. Each option is one sentence ≤140 characters describing the angle. Return strict JSON via the record_personalization_options tool. No prose.',
+  writerRegen:
+    'Rewrite a SINGLE paragraph of an existing short-form video script. Preserve markdown shape (headings/lists) and match the rest of the draft\'s voice. Return ONLY the new paragraph via record_paragraph_rewrite — no preamble, no surrounding paragraphs.',
 };

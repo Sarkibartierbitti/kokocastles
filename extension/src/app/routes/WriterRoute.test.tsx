@@ -17,9 +17,12 @@ vi.mock('~/lib/llm/tasks', () => ({
   generateScript: vi.fn(async () => ({
     id: 'd-mock',
     model: 'claude-sonnet-4-5',
-    contentMd: '# HOOK\nThis is a generated draft.',
+    contentMd: '# HOOK\n\nFirst paragraph.\n\nSecond paragraph.',
     createdAt: '2026-05-11T00:00:00Z',
   })),
+  writerClarify: vi.fn(async () => ['Audience?', 'Tone?']),
+  writerPersonalize: vi.fn(async () => ['Storytime', 'Tutorial']),
+  writerRegenParagraph: vi.fn(async () => 'A REWRITTEN paragraph from the mock.'),
 }));
 
 beforeEach(() => {
@@ -126,5 +129,56 @@ describe('WriterRoute', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
     const btn = (await screen.findByRole('button', { name: /^generate$/i })) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
+  });
+
+  it('switching to guided mode reveals stepper + clarify generates questions', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    await renderRoute();
+    fireEvent.click(screen.getByRole('button', { name: /\+ new thread/i }));
+    const topic = await screen.findByLabelText(/^topic$/i);
+    fireEvent.change(topic, { target: { value: 'My topic' } });
+    fireEvent.click(screen.getByRole('button', { name: /guided/i }));
+    expect(await screen.findByRole('tab', { name: /1\. clarify/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /generate questions/i }));
+    expect(await screen.findByLabelText(/answer to: Audience\?/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/answer to: Tone\?/i)).toBeInTheDocument();
+  });
+
+  it('regenerate paragraph appends a new draft with the replacement', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    fakeStore['koko.writerThreads'] = [
+      {
+        id: 't1',
+        title: 'T',
+        topic: 'About bread',
+        context: { usePersona: false, databankIds: [], files: [] },
+        drafts: [
+          {
+            id: 'd1',
+            model: 'claude-sonnet-4-5',
+            contentMd: '# HOOK\n\nFirst paragraph.\n\nSecond paragraph.',
+            createdAt: '2026-05-12T00:00:00Z',
+          },
+        ],
+        createdAt: '2026-05-12T00:00:00Z',
+        updatedAt: '2026-05-12T00:00:00Z',
+        mode: 'multi',
+        step: 'iterate',
+      },
+    ];
+    await renderRoute();
+    fireEvent.click(await screen.findByText(/^T$/));
+    // Need at least one regenerate button on a paragraph
+    const regenBtns = await screen.findAllByRole('button', { name: /regenerate paragraph/i });
+    fireEvent.click(regenBtns[0]);
+    fireEvent.click(await screen.findByRole('button', { name: /^rewrite$/i }));
+    await waitFor(() => {
+      const threads = fakeStore['koko.writerThreads'] as Array<{ drafts: Array<{ contentMd: string }> }>;
+      expect(threads[0].drafts.length).toBe(2);
+      const newDraft = threads[0].drafts[1];
+      expect(newDraft.contentMd).toMatch(/A REWRITTEN paragraph/);
+    });
   });
 });

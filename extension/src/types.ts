@@ -129,4 +129,11 @@ export interface WriterThread {
   drafts: WriterDraft[];
   createdAt: string;
   updatedAt: string;
+  // Phase 8 multi-step state (all optional; absent = legacy single-shot)
+  mode?: 'single' | 'multi';
+  step?: 'idle' | 'clarify' | 'personalize' | 'draft' | 'iterate';
+  clarifyQuestions?: string[];
+  clarifyAnswers?: Record<string, string>;
+  personalizationOptions?: string[];
+  pickedOption?: string;
 }

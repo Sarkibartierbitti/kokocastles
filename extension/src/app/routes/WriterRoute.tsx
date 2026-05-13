@@ -12,6 +12,10 @@ import type {
 } from '~/types';
 import type { DatabankBundle } from '~/lib/writerPrompt';
 import MarkdownView from '~/app/components/MarkdownView';
+import { splitDraftParagraphs, mergeParagraphs, joinParagraphs } from '~/lib/writerSteps';
+
+type WriterMode = 'single' | 'multi';
+type WriterStep = 'idle' | 'clarify' | 'personalize' | 'draft' | 'iterate';
 
 const MAX_FILE_BYTES = 100 * 1024;
 const MAX_FILES_TOTAL_BYTES = 500 * 1024;
@@ -98,6 +102,14 @@ export default function WriterRoute() {
     databankIds: [],
     files: [],
   });
+  const [mode, setMode] = useState<WriterMode>('single');
+  const [step, setStep] = useState<WriterStep>('idle');
+  const [clarifyQuestions, setClarifyQuestions] = useState<string[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<Record<string, string>>({});
+  const [personalizationOptions, setPersonalizationOptions] = useState<string[]>([]);
+  const [pickedOption, setPickedOption] = useState<string>('');
+  const [regenHint, setRegenHint] = useState<string>('');
+  const [regenIndex, setRegenIndex] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function refresh() {
@@ -119,6 +131,14 @@ export default function WriterRoute() {
     setTitleDraft(active.title);
     setTopicDraft(active.topic);
     setContextDraft(active.context);
+    setMode(active.mode ?? 'single');
+    setStep(active.step ?? 'idle');
+    setClarifyQuestions(active.clarifyQuestions ?? []);
+    setClarifyAnswers(active.clarifyAnswers ?? {});
+    setPersonalizationOptions(active.personalizationOptions ?? []);
+    setPickedOption(active.pickedOption ?? '');
+    setRegenHint('');
+    setRegenIndex(null);
     const last = active.drafts.at(-1);
     setModelDraft(last?.model || storage.getLLMModel() || '');
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,13 +153,24 @@ export default function WriterRoute() {
         title: titleDraft.trim() || 'Untitled thread',
         topic: topicDraft,
         context: contextDraft,
+        mode,
+        step,
+        clarifyQuestions,
+        clarifyAnswers,
+        personalizationOptions,
+        pickedOption,
         updatedAt: new Date().toISOString(),
       };
-      // Skip write if nothing actually changed
       const changed =
         next.title !== active.title ||
         next.topic !== active.topic ||
-        JSON.stringify(next.context) !== JSON.stringify(active.context);
+        JSON.stringify(next.context) !== JSON.stringify(active.context) ||
+        next.mode !== active.mode ||
+        next.step !== active.step ||
+        JSON.stringify(next.clarifyQuestions) !== JSON.stringify(active.clarifyQuestions) ||
+        JSON.stringify(next.clarifyAnswers) !== JSON.stringify(active.clarifyAnswers) ||
+        JSON.stringify(next.personalizationOptions) !== JSON.stringify(active.personalizationOptions) ||
+        next.pickedOption !== active.pickedOption;
       if (!changed) return;
       await storage.upsertWriterThread(next);
       refresh();
@@ -147,7 +178,7 @@ export default function WriterRoute() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [titleDraft, topicDraft, contextDraft]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [titleDraft, topicDraft, contextDraft, mode, step, clarifyQuestions, clarifyAnswers, personalizationOptions, pickedOption]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createThread() {
     const t = newThread();
@@ -196,6 +227,21 @@ export default function WriterRoute() {
     setContextDraft((c) => ({ ...c, files: c.files.filter((f) => f.name !== name) }));
   }
 
+  function buildAugmentedTopic(): string {
+    if (mode !== 'multi') return topicDraft;
+    const answersBlock = Object.entries(clarifyAnswers)
+      .filter(([, a]) => a.trim().length > 0)
+      .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+      .join('\n');
+    return [
+      topicDraft,
+      pickedOption ? `Angle: ${pickedOption}` : '',
+      answersBlock,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
   async function generate() {
     if (!active) return;
     if (!topicDraft.trim()) {
@@ -213,6 +259,12 @@ export default function WriterRoute() {
         title: titleDraft.trim() || 'Untitled thread',
         topic: topicDraft,
         context: contextDraft,
+        mode,
+        step,
+        clarifyQuestions,
+        clarifyAnswers,
+        personalizationOptions,
+        pickedOption,
         updatedAt: ts,
       };
       await storage.upsertWriterThread(flushed);
@@ -221,13 +273,14 @@ export default function WriterRoute() {
       const personaIn = contextDraft.usePersona ? persona : null;
       const { generateScript } = await import('~/lib/llm/tasks');
       const draft = await generateScript({
-        topic: topicDraft,
+        topic: buildAugmentedTopic(),
         context: contextDraft,
         persona: personaIn,
         databankBundles: bundles,
         modelOverride: modelDraft || undefined,
       });
       await storage.appendWriterDraft(active.id, draft);
+      if (mode === 'multi') setStep('iterate');
       setStatus('Done.');
       refresh();
     } catch (e) {
@@ -237,6 +290,106 @@ export default function WriterRoute() {
     } finally {
       setBusy(false);
       setTimeout(() => setStatus(null), 2000);
+    }
+  }
+
+  async function runClarify() {
+    if (!active || !topicDraft.trim()) {
+      setErr('Topic is required.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    setStatus('Asking…');
+    try {
+      const bundles = buildBundles(contextDraft.databankIds);
+      const personaIn = contextDraft.usePersona ? persona : null;
+      const { writerClarify } = await import('~/lib/llm/tasks');
+      const qs = await writerClarify({
+        topic: topicDraft,
+        context: contextDraft,
+        persona: personaIn,
+        databankBundles: bundles,
+        modelOverride: modelDraft || undefined,
+      });
+      setClarifyQuestions(qs);
+      const seeded: Record<string, string> = {};
+      for (const q of qs) seeded[q] = clarifyAnswers[q] ?? '';
+      setClarifyAnswers(seeded);
+      setStatus('Done.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setStatus(null);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setStatus(null), 1500);
+    }
+  }
+
+  async function runPersonalize() {
+    if (!active) return;
+    setBusy(true);
+    setErr(null);
+    setStatus('Suggesting…');
+    try {
+      const bundles = buildBundles(contextDraft.databankIds);
+      const personaIn = contextDraft.usePersona ? persona : null;
+      const { writerPersonalize } = await import('~/lib/llm/tasks');
+      const opts = await writerPersonalize({
+        topic: topicDraft,
+        context: contextDraft,
+        persona: personaIn,
+        databankBundles: bundles,
+        modelOverride: modelDraft || undefined,
+        clarifyAnswers,
+      });
+      setPersonalizationOptions(opts);
+      setStatus('Done.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setStatus(null);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setStatus(null), 1500);
+    }
+  }
+
+  async function regenerateParagraph(draftId: string, index: number) {
+    if (!active) return;
+    const draft = active.drafts.find((d) => d.id === draftId);
+    if (!draft) return;
+    const paragraphs = splitDraftParagraphs(draft.contentMd);
+    if (index < 0 || index >= paragraphs.length) return;
+    setBusy(true);
+    setErr(null);
+    setStatus('Rewriting…');
+    try {
+      const { writerRegenParagraph } = await import('~/lib/llm/tasks');
+      const next = await writerRegenParagraph({
+        fullDraftMd: draft.contentMd,
+        paragraphIndex: index,
+        paragraphText: paragraphs[index],
+        hint: regenHint.trim() || undefined,
+        modelOverride: modelDraft || undefined,
+      });
+      const newMd = joinParagraphs(mergeParagraphs(paragraphs, index, next));
+      const newDraft: WriterDraft = {
+        id: crypto.randomUUID(),
+        model: draft.model,
+        contentMd: newMd,
+        createdAt: new Date().toISOString(),
+      };
+      await storage.appendWriterDraft(active.id, newDraft);
+      setRegenHint('');
+      setRegenIndex(null);
+      setStatus('Done.');
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setStatus(null);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setStatus(null), 1500);
     }
   }
 
@@ -412,6 +565,30 @@ export default function WriterRoute() {
                 />
               </label>
 
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-medium text-slate-600">Flow</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('single');
+                    setStep('idle');
+                  }}
+                  className={`rounded-full px-2 py-0.5 ${mode === 'single' ? 'bg-koko-sky text-slate-900' : 'border border-sky-200 text-slate-600 hover:bg-sky-50'}`}
+                >
+                  Single-shot
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('multi');
+                    if (step === 'idle') setStep('clarify');
+                  }}
+                  className={`rounded-full px-2 py-0.5 ${mode === 'multi' ? 'bg-koko-sky text-slate-900' : 'border border-sky-200 text-slate-600 hover:bg-sky-50'}`}
+                >
+                  Guided (clarify → personalize → draft → iterate)
+                </button>
+              </div>
+
               <label className="block text-xs font-medium text-slate-600">
                 Model
                 <select
@@ -427,6 +604,156 @@ export default function WriterRoute() {
                   ))}
                 </select>
               </label>
+
+              {mode === 'multi' && (
+                <fieldset className="space-y-3 rounded border border-sky-200 bg-sky-50 p-3">
+                  <legend className="text-xs font-semibold text-slate-700">Guided flow</legend>
+                  <div className="flex flex-wrap gap-1 text-[10px]" role="tablist">
+                    {(['clarify', 'personalize', 'draft', 'iterate'] as WriterStep[]).map((s, i) => (
+                      <button
+                        key={s}
+                        type="button"
+                        role="tab"
+                        aria-selected={step === s}
+                        onClick={() => setStep(s)}
+                        className={`rounded-full px-2 py-0.5 ${step === s ? 'bg-koko-pink-deep text-white' : 'border border-sky-200 text-slate-600 hover:bg-white'}`}
+                      >
+                        {i + 1}. {s}
+                      </button>
+                    ))}
+                  </div>
+
+                  {step === 'clarify' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={runClarify}
+                        disabled={busy || !llmConfigured || !topicDraft.trim()}
+                        className="rounded border border-sky-200 bg-white px-2 py-1 text-xs hover:bg-sky-100 disabled:opacity-50"
+                      >
+                        {clarifyQuestions.length === 0 ? 'Generate questions' : 'Regenerate questions'}
+                      </button>
+                      {clarifyQuestions.length > 0 && (
+                        <ul className="space-y-1">
+                          {clarifyQuestions.map((q) => (
+                            <li key={q} className="space-y-1">
+                              <div className="text-xs text-slate-700">{q}</div>
+                              <textarea
+                                value={clarifyAnswers[q] ?? ''}
+                                onChange={(e) =>
+                                  setClarifyAnswers((c) => ({ ...c, [q]: e.target.value }))
+                                }
+                                aria-label={`Answer to: ${q}`}
+                                className="min-h-10 w-full rounded border border-sky-200 px-2 py-1 text-xs"
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setStep('personalize')}
+                        className="rounded bg-koko-pink-deep px-2 py-1 text-xs text-white hover:bg-pink-500"
+                      >
+                        Next: personalize →
+                      </button>
+                    </div>
+                  )}
+
+                  {step === 'personalize' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={runPersonalize}
+                        disabled={busy || !llmConfigured}
+                        className="rounded border border-sky-200 bg-white px-2 py-1 text-xs hover:bg-sky-100 disabled:opacity-50"
+                      >
+                        {personalizationOptions.length === 0 ? 'Suggest twists' : 'Suggest more twists'}
+                      </button>
+                      {personalizationOptions.length > 0 && (
+                        <ul className="space-y-1">
+                          {personalizationOptions.map((o) => (
+                            <li key={o} className="flex items-start gap-2 text-xs">
+                              <input
+                                type="radio"
+                                id={`twist-${o.slice(0, 20)}`}
+                                name="personalization"
+                                checked={pickedOption === o}
+                                onChange={() => setPickedOption(o)}
+                              />
+                              <label htmlFor={`twist-${o.slice(0, 20)}`}>{o}</label>
+                            </li>
+                          ))}
+                          <li className="flex items-start gap-2 text-xs">
+                            <input
+                              type="radio"
+                              id="twist-skip"
+                              name="personalization"
+                              checked={pickedOption === ''}
+                              onChange={() => setPickedOption('')}
+                            />
+                            <label htmlFor="twist-skip">Skip — no specific twist</label>
+                          </li>
+                        </ul>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setStep('clarify')}
+                          className="rounded border border-sky-200 px-2 py-1 text-xs hover:bg-sky-100"
+                        >
+                          ← Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStep('draft')}
+                          className="rounded bg-koko-pink-deep px-2 py-1 text-xs text-white hover:bg-pink-500"
+                        >
+                          Next: draft →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {step === 'draft' && (
+                    <div className="space-y-1 text-xs text-slate-600">
+                      Press Generate below. Clarify answers + chosen twist will be appended to the prompt.
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setStep('personalize')}
+                          className="rounded border border-sky-200 px-2 py-1 text-xs hover:bg-sky-100"
+                        >
+                          ← Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStep('iterate')}
+                          className="rounded border border-sky-200 px-2 py-1 text-xs hover:bg-sky-100"
+                          disabled={active.drafts.length === 0}
+                        >
+                          Skip to iterate →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {step === 'iterate' && (
+                    <div className="space-y-1 text-xs text-slate-600">
+                      Click “Regenerate paragraph” on any block in the draft below. Add an optional hint to steer the rewrite.
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setStep('draft')}
+                          className="rounded border border-sky-200 px-2 py-1 text-xs hover:bg-sky-100"
+                        >
+                          ← Back to draft
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </fieldset>
+              )}
 
               <div className="flex items-center gap-2">
                 <button
@@ -453,31 +780,85 @@ export default function WriterRoute() {
               ) : (
                 [...active.drafts]
                   .reverse()
-                  .map((d) => (
-                    <article key={d.id} className="rounded border border-sky-100 bg-white p-4 space-y-2">
-                      <header className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <span>{d.model}</span>
-                        <span>·</span>
-                        <span>{relativeTime(d.createdAt)}</span>
-                        <span className="flex-1" />
-                        <button
-                          type="button"
-                          onClick={() => copyDraft(d)}
-                          className="rounded border border-sky-200 px-2 py-0.5 hover:bg-sky-50"
-                        >
-                          Copy
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => exportDraft(d)}
-                          className="rounded border border-sky-200 px-2 py-0.5 hover:bg-sky-50"
-                        >
-                          Export .md
-                        </button>
-                      </header>
-                      <MarkdownView source={d.contentMd} />
-                    </article>
-                  ))
+                  .map((d, di) => {
+                    const isLatest = di === 0;
+                    const paragraphs = splitDraftParagraphs(d.contentMd);
+                    return (
+                      <article key={d.id} className="rounded border border-sky-100 bg-white p-4 space-y-2">
+                        <header className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span>{d.model}</span>
+                          <span>·</span>
+                          <span>{relativeTime(d.createdAt)}</span>
+                          <span className="flex-1" />
+                          <button
+                            type="button"
+                            onClick={() => copyDraft(d)}
+                            className="rounded border border-sky-200 px-2 py-0.5 hover:bg-sky-50"
+                          >
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => exportDraft(d)}
+                            className="rounded border border-sky-200 px-2 py-0.5 hover:bg-sky-50"
+                          >
+                            Export .md
+                          </button>
+                        </header>
+
+                        {mode === 'multi' && step === 'iterate' && isLatest ? (
+                          <div className="space-y-2">
+                            {paragraphs.map((p, idx) => (
+                              <div key={idx} className="space-y-1 rounded border border-sky-100 p-2">
+                                <MarkdownView source={p} />
+                                {regenIndex === idx ? (
+                                  <div className="space-y-1">
+                                    <textarea
+                                      value={regenHint}
+                                      onChange={(e) => setRegenHint(e.target.value)}
+                                      aria-label="Rewrite hint"
+                                      placeholder="Optional hint (e.g. 'punchier opener')"
+                                      className="min-h-10 w-full rounded border border-sky-200 px-2 py-1 text-xs"
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => regenerateParagraph(d.id, idx)}
+                                        disabled={busy}
+                                        className="rounded bg-koko-pink-deep px-2 py-0.5 text-xs text-white hover:bg-pink-500 disabled:opacity-50"
+                                      >
+                                        Rewrite
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setRegenIndex(null);
+                                          setRegenHint('');
+                                        }}
+                                        className="rounded border border-sky-200 px-2 py-0.5 text-xs hover:bg-sky-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setRegenIndex(idx)}
+                                    className="text-[10px] text-koko-pink-deep hover:underline"
+                                  >
+                                    Regenerate paragraph
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <MarkdownView source={d.contentMd} />
+                        )}
+                      </article>
+                    );
+                  })
               )}
             </section>
           </>

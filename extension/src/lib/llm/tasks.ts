@@ -1,6 +1,6 @@
 import { callLLM, type ContentBlock } from './index';
 import { storage } from '../storage';
-import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema, writerSchema, categorizeHookSchema } from '../prompts';
+import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema, writerSchema, categorizeHookSchema, writerClarifySchema, writerPersonalizeSchema, writerRegenSchema } from '../prompts';
 import { normalizeHookCategory, type HookCategory } from '../hookCategories';
 import { fullText, sliceByTime } from '../transcript';
 import { buildWriterPrompt, type DatabankBundle } from '../writerPrompt';
@@ -235,4 +235,78 @@ export async function categorizeHooks(
     }
   }
   return results;
+}
+
+export async function writerClarify(args: GenerateScriptArgs): Promise<string[]> {
+  const userPrompt = buildWriterPrompt({
+    topic: args.topic,
+    context: args.context,
+    persona: args.persona,
+    databankBundles: args.databankBundles,
+  });
+  const tool = taskTools.writerClarify;
+  const r = await callLLM<{ questions: string[] }>({
+    task: 'writerClarify',
+    systemPrompt: systemPrompts.writerClarify,
+    content: [{ type: 'text', text: userPrompt }],
+    toolName: tool.name,
+    toolDescription: tool.description ?? 'record clarifying questions',
+    schema: writerClarifySchema,
+    maxTokens: 500,
+    modelOverride: args.modelOverride,
+  });
+  return r.questions;
+}
+
+export interface WriterPersonalizeArgs extends GenerateScriptArgs {
+  clarifyAnswers: Record<string, string>;
+}
+
+export async function writerPersonalize(args: WriterPersonalizeArgs): Promise<string[]> {
+  const base = buildWriterPrompt({
+    topic: args.topic,
+    context: args.context,
+    persona: args.persona,
+    databankBundles: args.databankBundles,
+  });
+  const qa = Object.entries(args.clarifyAnswers)
+    .filter(([, a]) => a.trim().length > 0)
+    .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+    .join('\n\n') || '(no clarifying answers provided)';
+  const tool = taskTools.writerPersonalize;
+  const r = await callLLM<{ options: string[] }>({
+    task: 'writerPersonalize',
+    systemPrompt: systemPrompts.writerPersonalize,
+    content: [{ type: 'text', text: `${base}\n\n<clarifying_answers>\n${qa}\n</clarifying_answers>` }],
+    toolName: tool.name,
+    toolDescription: tool.description ?? 'record personalization options',
+    schema: writerPersonalizeSchema,
+    maxTokens: 500,
+    modelOverride: args.modelOverride,
+  });
+  return r.options;
+}
+
+export interface WriterRegenArgs {
+  fullDraftMd: string;
+  paragraphIndex: number;
+  paragraphText: string;
+  hint?: string;
+  modelOverride?: LLMModelId;
+}
+
+export async function writerRegenParagraph(args: WriterRegenArgs): Promise<string> {
+  const tool = taskTools.writerRegen;
+  const body = `<full_draft>\n${args.fullDraftMd}\n</full_draft>\n\n<target_paragraph index="${args.paragraphIndex}">\n${args.paragraphText}\n</target_paragraph>${args.hint ? `\n\n<user_hint>\n${args.hint}\n</user_hint>` : ''}`;
+  const r = await callLLM<{ paragraph: string }>({
+    task: 'writerRegen',
+    systemPrompt: systemPrompts.writerRegen,
+    content: [{ type: 'text', text: body }],
+    toolName: tool.name,
+    toolDescription: tool.description ?? 'record paragraph rewrite',
+    schema: writerRegenSchema,
+    maxTokens: 800,
+    modelOverride: args.modelOverride,
+  });
+  return r.paragraph;
 }
