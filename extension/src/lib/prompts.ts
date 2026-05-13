@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { LLMTask } from '../types';
+import { HOOK_CATEGORIES } from './hookCategories';
 
 export const triageSchema = z.object({
   hookType: z.string(),
@@ -45,6 +46,15 @@ export const ideasSchema = z.object({
 
 export const writerSchema = z.object({
   script: z.string().min(20),
+});
+
+export const categorizeHookSchema = z.object({
+  assignments: z.array(
+    z.object({
+      videoId: z.string(),
+      category: z.string(),
+    })
+  ),
 });
 
 export const synthesisSchema = z.object({
@@ -156,6 +166,27 @@ export const taskTools = {
       required: ['ideas'],
     },
   },
+  categorizeHook: {
+    name: 'record_hook_categories',
+    description: 'Classify each short-form video hook into one of the closed-set categories.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        assignments: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              videoId: { type: 'string' },
+              category: { type: 'string', enum: [...HOOK_CATEGORIES, 'Uncategorized'] },
+            },
+            required: ['videoId', 'category'],
+          },
+        },
+      },
+      required: ['assignments'],
+    },
+  },
   writer: {
     name: 'record_script',
     description: 'Record the finished short-form video script as markdown.',
@@ -214,4 +245,6 @@ export const systemPrompts: Record<LLMTask, string> = {
     "You are a creative strategist generating short-form video ideas inspired by a creator's analyzed videos and persona. Output 8 to 12 distinct ideas. Each idea has: title (catchy hook style, ≤80 chars), rationale (why it might work for this creator, 1–2 sentences), score (0..1 confidence). Do not repeat themes already saturated in the source set.",
   writer:
     "You write short-form social-media video scripts. Output is markdown only, returned via the record_script tool. The script must have three sections: HOOK (≤8s spoken, attention-grabbing), BODY (main content), CTA (final call to action). Use [B-ROLL: ...] inline cues where helpful. Stay tight enough to read in 60 seconds. Match the persona's writing style if provided. Never invent statistics or facts not present in inputs.",
+  categorizeHook:
+    `You classify short-form video hooks into a fixed set of categories. Choose exactly one category per hook from this list: ${HOOK_CATEGORIES.join(', ')}. If no category fits, return 'Uncategorized'. Reply only via the record_hook_categories tool. No prose.`,
 };

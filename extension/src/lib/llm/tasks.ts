@@ -1,6 +1,7 @@
 import { callLLM, type ContentBlock } from './index';
 import { storage } from '../storage';
-import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema, writerSchema } from '../prompts';
+import { systemPrompts, taskTools, triageSchema, deepSchema, outlierWhySchema, synthesisSchema, ideasSchema, writerSchema, categorizeHookSchema } from '../prompts';
+import { normalizeHookCategory, type HookCategory } from '../hookCategories';
 import { fullText, sliceByTime } from '../transcript';
 import { buildWriterPrompt, type DatabankBundle } from '../writerPrompt';
 import type { DeepAnalysis, Idea, IdeaSourceRef, Persona, PlatformId, TranscriptSegment, TriageResult, Video, WriterContextRef, WriterDraft } from '../../types';
@@ -195,4 +196,43 @@ export async function generateScript(args: GenerateScriptArgs): Promise<WriterDr
     contentMd: result.script,
     createdAt: new Date().toISOString(),
   };
+}
+
+export interface HookCategorizationInput {
+  videoId: string;
+  spoken: string;
+  onScreen: string;
+  visualFormat: string;
+}
+
+const CATEGORIZE_BATCH_SIZE = 30;
+
+export async function categorizeHooks(
+  items: HookCategorizationInput[]
+): Promise<Array<{ videoId: string; category: HookCategory }>> {
+  if (items.length === 0) return [];
+  const results: Array<{ videoId: string; category: HookCategory }> = [];
+  for (let i = 0; i < items.length; i += CATEGORIZE_BATCH_SIZE) {
+    const batch = items.slice(i, i + CATEGORIZE_BATCH_SIZE);
+    const body = batch
+      .map(
+        (b, idx) =>
+          `${idx + 1}. videoId=${b.videoId}\n   spoken: ${b.spoken || '(none)'}\n   on-screen: ${b.onScreen || '(none)'}\n   visualFormat: ${b.visualFormat || '(none)'}`
+      )
+      .join('\n\n');
+    const tool = taskTools.categorizeHook;
+    const out = await callLLM<{ assignments: Array<{ videoId: string; category: string }> }>({
+      task: 'categorizeHook',
+      systemPrompt: systemPrompts.categorizeHook,
+      content: [{ type: 'text', text: body }],
+      toolName: tool.name,
+      toolDescription: tool.description ?? 'record hook categories',
+      schema: categorizeHookSchema,
+      maxTokens: 600,
+    });
+    for (const a of out.assignments) {
+      results.push({ videoId: a.videoId, category: normalizeHookCategory(a.category) });
+    }
+  }
+  return results;
 }

@@ -13,6 +13,11 @@ export default function HookCard({ entry }: { entry: HookEntry }) {
         </a>
       </div>
       <div className="space-y-1">
+        {entry.category && (
+          <span className="inline-block rounded-full bg-koko-sky px-2 py-0.5 text-[10px] font-medium text-slate-900">
+            {entry.category}
+          </span>
+        )}
         <div className="text-[10px] uppercase tracking-wide text-slate-400">written hook</div>
         <div className="text-sm">{entry.spoken || entry.onScreen || '—'}</div>
         {entry.onScreen && entry.spoken && entry.onScreen !== entry.spoken ? (

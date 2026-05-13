@@ -1,14 +1,54 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { storage } from '~/lib/storage';
 import { aggregateHooks } from '~/lib/aggregators';
+import type { HookCategory } from '~/lib/hookCategories';
 import HookCard from '~/app/components/HookCard';
 
 export default function HooksSubPage() {
+  const [categories, setCategories] = useState<Map<string, HookCategory>>(() =>
+    storage.getAllHookCategories()
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const ranRef = useRef(false);
+
   const hooks = useMemo(() => {
     const deeps = storage.getAllDeepEntries();
     const transcripts = storage.getAllTranscriptEntries();
-    return aggregateHooks(deeps, transcripts);
-  }, []);
+    return aggregateHooks(deeps, transcripts, categories);
+  }, [categories]);
+
+  useEffect(() => {
+    if (ranRef.current) return;
+    const uncategorized = hooks.filter((h) => !h.category);
+    if (uncategorized.length === 0) return;
+    ranRef.current = true;
+    setBusy(true);
+    setErr(null);
+    (async () => {
+      try {
+        const { categorizeHooks } = await import('~/lib/llm/tasks');
+        const out = await categorizeHooks(
+          uncategorized.map((h) => ({
+            videoId: h.videoId,
+            spoken: h.spoken,
+            onScreen: h.onScreen,
+            visualFormat: h.visualFormat,
+          }))
+        );
+        for (const a of out) {
+          const match = uncategorized.find((h) => h.videoId === a.videoId);
+          if (!match) continue;
+          await storage.setHookCategory(match.platform, match.videoId, a.category);
+        }
+        setCategories(storage.getAllHookCategories());
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [hooks]);
 
   if (hooks.length === 0) {
     return (
@@ -21,7 +61,11 @@ export default function HooksSubPage() {
   return (
     <div className="space-y-3">
       <header className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">{hooks.length} hook{hooks.length === 1 ? '' : 's'} from analyzed videos</p>
+        <p className="text-xs text-slate-500">
+          {hooks.length} hook{hooks.length === 1 ? '' : 's'} from analyzed videos
+        </p>
+        {busy && <span className="text-xs text-slate-500">Categorizing…</span>}
+        {err && <span className="text-xs text-red-600">{err}</span>}
       </header>
       <div className="space-y-2">
         {hooks.map((h) => (

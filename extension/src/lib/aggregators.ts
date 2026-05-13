@@ -1,5 +1,6 @@
 import type { DeepAnalysis, PlatformId, TranscriptSegment } from '~/types';
 import { sliceByTime, fullText } from './transcript';
+import type { HookCategory } from './hookCategories';
 
 export interface DeepEntry {
   platform: PlatformId;
@@ -21,6 +22,7 @@ export interface HookEntry {
   onScreen: string;
   visualFormat: string;
   audioHook: string;
+  category?: HookCategory;
 }
 
 export interface ScriptEntry {
@@ -29,13 +31,18 @@ export interface ScriptEntry {
   fullText: string;
 }
 
-export function aggregateHooks(deeps: DeepEntry[], transcripts: TranscriptEntry[]): HookEntry[] {
+export function aggregateHooks(
+  deeps: DeepEntry[],
+  transcripts: TranscriptEntry[],
+  categories?: Map<string, HookCategory>
+): HookEntry[] {
   const tIndex = new Map<string, TranscriptSegment[]>();
   for (const t of transcripts) tIndex.set(`${t.platform}::${t.videoId}`, t.segments);
 
   return deeps.map((d) => {
-    const segs = tIndex.get(`${d.platform}::${d.videoId}`) ?? [];
-    return {
+    const key = `${d.platform}::${d.videoId}`;
+    const segs = tIndex.get(key) ?? [];
+    const entry: HookEntry = {
       platform: d.platform,
       videoId: d.videoId,
       hookType: d.deep.hook.type,
@@ -44,6 +51,9 @@ export function aggregateHooks(deeps: DeepEntry[], transcripts: TranscriptEntry[
       visualFormat: d.deep.hook.visualFormat,
       audioHook: segs.length > 0 ? sliceByTime(segs, 0, 5) : '',
     };
+    const cat = categories?.get(key);
+    if (cat) entry.category = cat;
+    return entry;
   });
 }
 

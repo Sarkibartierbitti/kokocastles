@@ -1,5 +1,6 @@
 import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Hypothesis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult, Video, WriterDraft, WriterThread } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
+import { normalizeHookCategory, type HookCategory } from './hookCategories';
 
 declare const browser: {
   storage: {
@@ -35,6 +36,7 @@ const KEY = {
   hypotheses: 'koko.hypotheses',
   ownChannelVideos: 'koko.ownChannelVideos',
   ownChannelRefreshedAt: 'koko.ownChannelRefreshedAt',
+  hookCategoryPrefix: 'koko.hookCategory.',
 } as const;
 
 export interface YtQuotaToday {
@@ -67,6 +69,7 @@ function triageKey(p: PlatformId, id: string) { return `${KEY.triagePrefix}${p}.
 function deepKey(p: PlatformId, id: string) { return `${KEY.deepPrefix}${p}.${id}`; }
 function transcriptKey(p: PlatformId, id: string) { return `${KEY.transcriptPrefix}${p}.${id}`; }
 function hiddenKey(p: PlatformId, id: string) { return `${KEY.hiddenPrefix}${p}.${id}`; }
+function hookCategoryKey(p: PlatformId, id: string) { return `${KEY.hookCategoryPrefix}${p}.${id}`; }
 
 let databankIndex: Map<string, Set<string>> = new Map();
 
@@ -327,6 +330,29 @@ export const storage = {
 
   getOwnChannelRefreshedAt: () => getCached<string>(KEY.ownChannelRefreshedAt, ''),
   setOwnChannelRefreshedAt: (v: string) => writeThrough(KEY.ownChannelRefreshedAt, v),
+
+  getHookCategory: (platform: PlatformId, videoId: string): HookCategory | null => {
+    const v = getCached<string | undefined>(hookCategoryKey(platform, videoId), undefined);
+    if (!v) return null;
+    return normalizeHookCategory(v);
+  },
+
+  setHookCategory: (platform: PlatformId, videoId: string, category: HookCategory) =>
+    writeThrough(hookCategoryKey(platform, videoId), category),
+
+  getAllHookCategories: (): Map<string, HookCategory> => {
+    const out = new Map<string, HookCategory>();
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith(KEY.hookCategoryPrefix)) continue;
+      const rest = k.slice(KEY.hookCategoryPrefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) continue;
+      const platform = rest.slice(0, dot);
+      const videoId = rest.slice(dot + 1);
+      out.set(`${platform}::${videoId}`, normalizeHookCategory(String(v)));
+    }
+    return out;
+  },
 };
 
 export type { LLMModelId, LLMProvider, PlatformId };
