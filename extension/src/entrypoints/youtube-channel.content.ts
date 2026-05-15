@@ -170,3 +170,5 @@ function parseDuration(s: string): number | null {
   for (const p of parts) total = total * 60 + p;
   return total > 0 ? total : null;
 }
+
+export { parseVideoRenderer, extractVideoItems };

@@ -1,0 +1,30 @@
+{
+  "contentId": "VrDknUDsrUk",
+  "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+  "contentImage": {
+    "thumbnailViewModel": {
+      "image": {
+        "sources": [
+          { "url": "https://i.ytimg.com/vi/VrDknUDsrUk/hq.jpg?w=168", "width": 168, "height": 94 },
+          { "url": "https://i.ytimg.com/vi/VrDknUDsrUk/hq.jpg?w=336", "width": 336, "height": 188 }
+        ]
+      },
+      "overlays": [
+        { "thumbnailBottomOverlayViewModel": { "badges": [
+          { "thumbnailBadgeViewModel": { "text": "0:26", "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT" } }
+        ]}}
+      ]
+    }
+  },
+  "metadata": {
+    "lockupMetadataViewModel": {
+      "title": { "content": "Linnea, do not listen to this man..." },
+      "metadata": { "contentMetadataViewModel": { "metadataRows": [
+        { "metadataParts": [
+          { "text": { "content": "45K views" } },
+          { "text": { "content": "3 weeks ago" } }
+        ]}
+      ]}}
+    }
+  }
+}
