@@ -73,9 +73,29 @@ describe('batchScrapeChannels — persist to scrapedVideos + databank', () => {
   });
 
   it('clamps latestN above 30 to 30', async () => {
-    const { batchScrapeChannels } = await import('../niche-bridge');
-    const out = await batchScrapeChannels(['UC1'], { latestN: 999 });
-    // mock returns only 2 videos; just confirm no throw and slice didn't exceed actual returned size
-    expect(out[0].ok && out[0].value.videos.length).toBeLessThanOrEqual(2);
+    const big = Array.from({ length: 35 }, (_, i) => ({
+      videoId: `b${i}`,
+      title: `bt${i}`,
+      viewCount: i,
+      publishedAtRelative: '1d',
+      thumbnailUrl: '',
+      durationSec: 60,
+    }));
+    const originalSend = mockBrowser.runtime.sendMessage;
+    mockBrowser.runtime.sendMessage = vi.fn(async () => ({
+      type: 'scrape-result',
+      payload: { kind: 'channel', channelId: 'UC1', channelTitle: 'Channel One', videos: big },
+    }));
+    try {
+      const { batchScrapeChannels } = await import('../niche-bridge');
+      const { storage } = await import('../storage');
+      await storage.hydrate();
+      const out = await batchScrapeChannels(['UC1'], { latestN: 999 });
+      expect(out[0].ok && out[0].value.videos.length).toBe(30);
+      expect(storage.getScrapedVideo('youtube', 'b29')).not.toBeNull();
+      expect(storage.getScrapedVideo('youtube', 'b30')).toBeNull();
+    } finally {
+      mockBrowser.runtime.sendMessage = originalSend;
+    }
   });
 });

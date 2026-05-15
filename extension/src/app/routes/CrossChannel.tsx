@@ -23,11 +23,7 @@ interface MergedRow {
   thumbnailUrl: string;
 }
 
-interface Props {
-  videoFilter?: (v: { platform: string; videoId: string }) => boolean;
-}
-
-export default function CrossChannel({ videoFilter }: Props = {}) {
+export default function CrossChannel() {
   const [tick, setTick] = useState(0);
 
   const [search, setSearch] = useState('');
@@ -50,11 +46,8 @@ export default function CrossChannel({ videoFilter }: Props = {}) {
         publishedAtRelative: e.publishedAtRelative,
         thumbnailUrl: e.thumbnailUrl,
       }));
-    return videoFilter
-      ? rows.filter((v) => videoFilter({ platform: 'youtube', videoId: v.videoId }))
-      : rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, videoFilter]);
+    return rows;
+  }, [tick]);
 
   const visibleRows = useMemo<MergedRow[]>(() => {
     const hidden = storage.getAllHiddenKeys();
