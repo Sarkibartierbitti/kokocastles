@@ -47,7 +47,7 @@ function prefixStream(stream, prefix, color) {
   });
 }
 
-function spawnPrefixed(prefix, color, cmd, args, opts) {
+function spawnPrefixed(prefix, color, cmd, args, opts, { critical = false } = {}) {
   // eslint-disable-next-line no-console
   console.log(`${ANSI_DIM}[dev] starting ${prefix}: ${cmd} ${args.join(' ')}${ANSI_RESET}`);
   const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -55,20 +55,24 @@ function spawnPrefixed(prefix, color, cmd, args, opts) {
   prefixStream(child.stderr, prefix, color);
   child.on('exit', (code, signal) => {
     process.stdout.write(`${color}[${prefix}]${ANSI_RESET} exited (code=${code}, signal=${signal})\n`);
-    // If one child dies on its own, take the rest down too.
-    for (const c of children) {
-      if (c !== child && c.exitCode == null) c.kill('SIGTERM');
+    if (critical) {
+      // Critical child dying tears the whole session down.
+      for (const c of children) {
+        if (c !== child && c.exitCode == null) c.kill('SIGTERM');
+      }
+      if (code != null) process.exitCode = code;
     }
-    if (code != null) process.exitCode = code;
+    // Non-critical children (e.g. dev-config-server hitting EADDRINUSE) exit
+    // independently. Wrapper keeps wxt alive.
   });
   children.push(child);
   return child;
 }
 
-// wxt dev (extension)
-spawnPrefixed('wxt', ANSI_CYAN, 'npx', ['wxt', '-b', target], { cwd: EXTENSION_DIR });
+// wxt dev (extension) — critical: if it dies, kill everything.
+spawnPrefixed('wxt', ANSI_CYAN, 'npx', ['wxt', '-b', target], { cwd: EXTENSION_DIR }, { critical: true });
 
-// dev-config server (optional)
+// dev-config server — optional / best-effort.
 if (!skipConfig) {
   spawnPrefixed('config', ANSI_MAGENTA, 'node', [join(__dirname, 'dev-config-server.mjs')], {
     cwd: REPO_ROOT,

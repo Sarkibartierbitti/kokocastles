@@ -124,6 +124,31 @@ const server = createServer(async (req, res) => {
   return jsonResponse(res, 404, { error: 'not found' });
 });
 
+server.on('error', async (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    // Probe existing process — if it's ours (responds to /health correctly), reuse and exit 0.
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/health`);
+      const body = await res.json();
+      if (res.ok && body && body.ok) {
+        // eslint-disable-next-line no-console
+        console.log(`[koko config-server] port ${PORT} already serving — reusing existing instance.`);
+        process.exit(0);
+      }
+    } catch {
+      // probe failed — fall through to the hard error below
+    }
+    // eslint-disable-next-line no-console
+    console.error(
+      `[koko config-server] port ${PORT} in use by a non-koko process. ` +
+        `Free it or set KOKO_DEV_PORT to another port.`
+    );
+    process.exit(1);
+  }
+  // Unknown error — re-throw to crash loud.
+  throw err;
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   // eslint-disable-next-line no-console
   console.log(`[koko config-server] listening on http://127.0.0.1:${PORT}`);
