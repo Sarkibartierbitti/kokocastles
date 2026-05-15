@@ -1,10 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
-import ChannelMultiPicker from '~/app/components/ChannelMultiPicker';
+import { useMemo, useState } from 'react';
 import VideoToolbar from '~/app/components/VideoToolbar';
 import ExportFieldPicker from '~/app/components/ExportFieldPicker';
-import { batchScrapeChannels, type ChannelDigest } from '~/lib/niche-bridge';
-import type { BatchResult } from '~/lib/batch-queue';
-import type { ScrapedVideo } from '~/lib/messaging';
+import ScrapeControl from '~/app/components/ScrapeControl';
 import {
   searchRows,
   filterRows,
@@ -16,9 +13,14 @@ import {
 } from '~/lib/feedFilter';
 import { storage } from '~/lib/storage';
 
-interface MergedRow extends ScrapedVideo {
+interface MergedRow {
+  videoId: string;
   channelId: string;
   channelTitle: string;
+  title: string;
+  viewCount: number | null;
+  publishedAtRelative: string;
+  thumbnailUrl: string;
 }
 
 interface Props {
@@ -26,12 +28,7 @@ interface Props {
 }
 
 export default function CrossChannel({ videoFilter }: Props = {}) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [results, setResults] = useState<BatchResult<ChannelDigest>[]>([]);
-  const [err, setErr] = useState<string | null>(null);
-  const ctrlRef = useRef<AbortController | null>(null);
+  const [tick, setTick] = useState(0);
 
   const [search, setSearch] = useState('');
   const [filterState, setFilterState] = useState<FilterState>({});
@@ -41,17 +38,23 @@ export default function CrossChannel({ videoFilter }: Props = {}) {
   const [showExport, setShowExport] = useState(false);
 
   const totalRows = useMemo<MergedRow[]>(() => {
-    const rows: MergedRow[] = [];
-    for (const r of results) {
-      if (!r.ok) continue;
-      for (const v of r.value.videos) {
-        rows.push({ ...v, channelId: r.value.channelId, channelTitle: r.value.channelTitle });
-      }
-    }
+    const map = storage.getScrapedVideos();
+    const rows: MergedRow[] = Object.values(map)
+      .filter((e) => e.platform === 'youtube')
+      .map((e) => ({
+        videoId: e.videoId,
+        channelId: e.channelId,
+        channelTitle: e.channelTitle,
+        title: e.title,
+        viewCount: e.viewCount,
+        publishedAtRelative: e.publishedAtRelative,
+        thumbnailUrl: e.thumbnailUrl,
+      }));
     return videoFilter
       ? rows.filter((v) => videoFilter({ platform: 'youtube', videoId: v.videoId }))
       : rows;
-  }, [results, videoFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, videoFilter]);
 
   const visibleRows = useMemo<MergedRow[]>(() => {
     const hidden = storage.getAllHiddenKeys();
@@ -79,75 +82,9 @@ export default function CrossChannel({ videoFilter }: Props = {}) {
     return out.slice(0, 50);
   }, [totalRows, search, filterState, sortField, sortDir, sessionHidden]);
 
-  async function run() {
-    if (selected.size === 0) return;
-    setBusy(true);
-    setErr(null);
-    setResults([]);
-    setProgress({ done: 0, total: selected.size });
-    const ctrl = new AbortController();
-    ctrlRef.current = ctrl;
-    try {
-      const ids = Array.from(selected);
-      console.log('[koko crosschannel] batch scrape start, channels=', ids);
-      const out = await batchScrapeChannels(ids, {
-        concurrency: 2,
-        jitterMs: 2500,
-        signal: ctrl.signal,
-        onProgress: (done, total) => setProgress({ done, total }),
-      });
-      const okCount = out.filter((r) => r.ok).length;
-      const totalVideos = out.reduce((acc, r) => acc + (r.ok ? r.value.videos.length : 0), 0);
-      console.log('[koko crosschannel] batch scrape done. ok=', okCount, '/', out.length, ' videos=', totalVideos);
-      setResults(out);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[koko crosschannel] batch scrape failed:', msg);
-      setErr(msg);
-    } finally {
-      setBusy(false);
-      ctrlRef.current = null;
-    }
-  }
-
-  function abort() {
-    ctrlRef.current?.abort();
-  }
-
-  const failures = results.filter((r) => !r.ok);
-
   return (
     <div className="space-y-6">
-      <section className="koko-card p-6 space-y-3">
-        <h2 className="text-lg font-display font-semibold">Cross-channel comparison</h2>
-        <p className="text-xs text-slate-600">
-          Pick up to 5 watchlist channels. Background opens hidden YouTube tabs (2 at a time,
-          ~2.5s jitter), scrapes their uploads, merges and sorts by views.
-        </p>
-        <ChannelMultiPicker selected={selected} onChange={setSelected} max={5} />
-        <div className="flex items-center gap-2">
-          <button onClick={run} disabled={busy || selected.size === 0} className="koko-btn">
-            {busy ? `scraping ${progress.done}/${progress.total}…` : `Scrape ${selected.size} channel${selected.size === 1 ? '' : 's'}`}
-          </button>
-          {busy ? (
-            <button onClick={abort} className="koko-btn-ghost text-sm">cancel</button>
-          ) : null}
-        </div>
-        {err ? <div className="text-sm text-rose-700">{err}</div> : null}
-        {!busy && results.length > 0 ? (
-          <div className="text-xs text-slate-600">
-            <strong>Scrape complete:</strong>{' '}
-            {results.filter((r) => r.ok).length}/{results.length} channels succeeded;{' '}
-            {results.reduce((acc, r) => acc + (r.ok ? r.value.videos.length : 0), 0)} videos total
-            {failures.length > 0 ? (
-              <span className="text-amber-800">
-                {' '}— failures:{' '}
-                {failures.map((f, i) => (f.ok ? null : <span key={i}>{f.error}{i < failures.length - 1 ? '; ' : ''}</span>))}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
+      <ScrapeControl onDone={() => setTick((t) => t + 1)} />
 
       {totalRows.length > 0 ? (
         <VideoToolbar
