@@ -4,8 +4,9 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "wxt -b firefox",
-    "dev:chrome": "wxt -b chrome",
+    "dev": "node ../scripts/dev.mjs firefox",
+    "dev:chrome": "node ../scripts/dev.mjs chrome",
+    "dev:wxt-only": "wxt -b firefox",
     "build": "wxt build -b firefox",
     "build:chrome": "wxt build -b chrome",
     "zip": "wxt zip -b firefox",
