@@ -175,6 +175,57 @@ export default function Settings() {
     }
   }
 
+  async function saveToWorkspace() {
+    setIoMsg(null);
+    setIoErr(null);
+    try {
+      const all = await browser.storage.local.get(null);
+      const bundle = buildBundle(all as Record<string, unknown>);
+      const res = await fetch('http://127.0.0.1:5176/save', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(bundle),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      const j = (await res.json()) as { bytes: number; path: string };
+      setIoMsg(`Saved ${Object.keys(bundle.entries).length} keys → ${j.path} (${j.bytes} B).`);
+      setTimeout(() => setIoMsg(null), 3000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setIoErr(`Save failed: ${msg}. Is "npm run dev:config" running?`);
+    }
+  }
+
+  async function loadFromWorkspace() {
+    setIoMsg(null);
+    setIoErr(null);
+    try {
+      const res = await fetch('http://127.0.0.1:5176/load');
+      if (res.status === 404) {
+        setIoErr('No workspace config saved yet. Click "Save to workspace" first.');
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      const text = await res.text();
+      const bundle = parseBundle(text);
+      const ok = window.confirm(
+        `Load ${Object.keys(bundle.entries).length} keys from workspace? This OVERWRITES matching keys in storage.`
+      );
+      if (!ok) return;
+      await browser.storage.local.set(bundle.entries);
+      setIoMsg(`Loaded ${Object.keys(bundle.entries).length} keys. Reload to see changes.`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setIoErr(`Load failed: ${msg}. Is "npm run dev:config" running?`);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="koko-card p-6 space-y-4">
@@ -431,6 +482,22 @@ export default function Settings() {
             }}
             aria-label="Import config file"
           />
+        </div>
+        <div className="space-y-1 border-t border-sky-100 pt-3">
+          <p className="text-xs text-slate-500">
+            Dev shortcut: persist directly into <code>.dev-config/koko-config.json</code> at the repo
+            root, no file picker. Requires the helper running locally:{' '}
+            <code className="rounded bg-sky-50 px-1">npm run dev:config</code> (from the{' '}
+            <code>extension/</code> dir).
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button onClick={saveToWorkspace} className="koko-btn">
+              Save to workspace
+            </button>
+            <button onClick={loadFromWorkspace} className="koko-btn">
+              Load from workspace
+            </button>
+          </div>
           {ioMsg ? <span className="text-xs text-slate-600">{ioMsg}</span> : null}
           {ioErr ? <span className="text-xs text-red-600">{ioErr}</span> : null}
         </div>

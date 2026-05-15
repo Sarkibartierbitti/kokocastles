@@ -11,7 +11,8 @@
     "zip": "wxt zip -b firefox",
     "test": "vitest run",
     "test:watch": "vitest",
-    "compile": "tsc --noEmit"
+    "compile": "tsc --noEmit",
+    "dev:config": "node ../scripts/dev-config-server.mjs"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

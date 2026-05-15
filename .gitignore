@@ -6,3 +6,6 @@ dist
 .wrangler
 tsconfig.tsbuildinfo
 .claude/.plan-approved
+
+# Local dev config bundle (contains API keys — never commit)
+.dev-config/

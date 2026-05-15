@@ -40,7 +40,7 @@ describe('Settings — analysis defaults', () => {
     await renderSettings();
     const input = await screen.findByLabelText(/outlier threshold/i);
     fireEvent.change(input, { target: { value: '2.5' } });
-    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(fakeStore['koko.outlierThreshold']).toBe(2.5);
     });
@@ -71,7 +71,7 @@ describe('Settings — throttling + refresh', () => {
     fireEvent.change(await screen.findByLabelText(/scrape concurrency/i), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText(/jitter/i), { target: { value: '4000' } });
     fireEvent.change(screen.getByLabelText(/refresh interval/i), { target: { value: '12' } });
-    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(fakeStore['koko.throttleConcurrency']).toBe(3);
       expect(fakeStore['koko.throttleJitterMs']).toBe(4000);

@@ -25,6 +25,8 @@ export default defineConfig({
       'https://api.together.xyz/*',
       'https://api.fireworks.ai/*',
       'https://www.googleapis.com/*',
+      'http://127.0.0.1:5176/*',
+      'http://localhost:5176/*',
     ],
     sidebar_action: {
       default_title: 'kokocastles',
