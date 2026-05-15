@@ -84,6 +84,19 @@ export interface IdeaSourceRef {
   videoId: string;
 }
 
+export interface ScrapedVideoCacheEntry {
+  platform: PlatformId;
+  videoId: string;
+  channelId: string;
+  channelTitle: string;
+  title: string;
+  viewCount: number | null;
+  publishedAtRelative: string;
+  thumbnailUrl: string;
+  durationSec: number | null;
+  fetchedAt: string; // ISO
+}
+
 export interface Idea {
   id: string;            // crypto.randomUUID
   title: string;

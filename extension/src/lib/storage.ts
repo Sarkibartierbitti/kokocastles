@@ -1,4 +1,4 @@
-import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Hypothesis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, TranscriptSegment, TriageResult, Video, WriterDraft, WriterThread } from '~/types';
+import type { Channel, Databank, DatabankVideoRef, DeepAnalysis, Hypothesis, Idea, LLMModelId, LLMProvider, Persona, PlatformId, ScrapedVideoCacheEntry, TranscriptSegment, TriageResult, Video, WriterDraft, WriterThread } from '~/types';
 import { buildIndex, dedupeRefs, newDatabank, refKey, validateName } from './databanks';
 import { normalizeHookCategory, type HookCategory } from './hookCategories';
 
@@ -41,6 +41,7 @@ const KEY = {
   platformWarnPrefix: 'koko.platformWarn.',
   framesEnabled: 'koko.framesEnabled',
   framePrefix: 'koko.frame.',
+  scrapedVideos: 'koko.scrapedVideos',
 } as const;
 
 export interface PlatformsEnabled {
@@ -368,6 +369,20 @@ export const storage = {
     getCached<string>(frameKey(p, id), ''),
   setFrame: (p: PlatformId, id: string, dataUrl: string) =>
     writeThrough(frameKey(p, id), dataUrl),
+
+  getScrapedVideos: (): Record<string, ScrapedVideoCacheEntry> =>
+    getCached<Record<string, ScrapedVideoCacheEntry>>(KEY.scrapedVideos, {}),
+
+  getScrapedVideo: (platform: PlatformId, videoId: string): ScrapedVideoCacheEntry | null => {
+    const map = getCached<Record<string, ScrapedVideoCacheEntry>>(KEY.scrapedVideos, {});
+    return map[`${platform}::${videoId}`] ?? null;
+  },
+
+  setScrapedVideos: async (entries: ScrapedVideoCacheEntry[]): Promise<void> => {
+    const map = { ...getCached<Record<string, ScrapedVideoCacheEntry>>(KEY.scrapedVideos, {}) };
+    for (const e of entries) map[`${e.platform}::${e.videoId}`] = e;
+    await writeThrough(KEY.scrapedVideos, map);
+  },
 
   getAllFrames: (): Map<string, string> => {
     const out = new Map<string, string>();
