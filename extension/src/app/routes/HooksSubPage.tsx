@@ -3,6 +3,7 @@ import { storage } from '~/lib/storage';
 import { aggregateHooks } from '~/lib/aggregators';
 import type { HookCategory } from '~/lib/hookCategories';
 import HookCard from '~/app/components/HookCard';
+import ScrapeControl from '~/app/components/ScrapeControl';
 
 export default function HooksSubPage() {
   const [categories, setCategories] = useState<Map<string, HookCategory>>(() =>
@@ -70,14 +71,18 @@ export default function HooksSubPage() {
 
   if (hooks.length === 0) {
     return (
-      <div className="koko-card p-8 max-w-xl mx-auto text-center text-sm text-slate-500">
-        No hooks yet. Analyze videos from the Videos sub-page to populate this view.
+      <div className="space-y-4">
+        <ScrapeControl />
+        <div className="koko-card p-8 max-w-xl mx-auto text-center text-sm text-slate-500">
+          No hooks yet. Scrape channels above, then analyze videos from the Videos sub-page to populate this view.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <ScrapeControl />
       <header className="flex items-center justify-between">
         <p className="text-xs text-slate-500">
           {hooks.length} hook{hooks.length === 1 ? '' : 's'} from analyzed videos
