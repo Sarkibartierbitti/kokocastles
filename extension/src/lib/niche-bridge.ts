@@ -1,6 +1,8 @@
 import type { BgToSidebar, ScrapeResult, ScrapedSearchResult, ScrapedVideo, SidebarToBg } from './messaging';
 import { runBatch, type BatchResult } from './batch-queue';
 import { activity } from './activity';
+import { storage } from './storage';
+import type { ScrapedVideoCacheEntry } from '~/types';
 
 const SEARCH_URL = (q: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 // Hit /videos directly. Channel home page (/channel/<id>) defaults to the
@@ -64,18 +66,57 @@ export interface BatchScrapeOptions {
   jitterMs?: number;
   onProgress?: (completed: number, total: number) => void;
   signal?: AbortSignal;
+  latestN?: number;       // 1–30, default 30
+  databankId?: string;    // when set, append scraped refs to this databank
+}
+
+const MAX_LATEST = 30;
+
+async function persistChannelResult(d: ChannelDigest, latestN: number, databankId?: string): Promise<void> {
+  const n = Math.max(1, Math.min(MAX_LATEST, latestN));
+  const sliced = d.videos.slice(0, n);
+  const now = new Date().toISOString();
+  const entries: ScrapedVideoCacheEntry[] = sliced.map((v) => ({
+    platform: 'youtube',
+    videoId: v.videoId,
+    channelId: d.channelId,
+    channelTitle: d.channelTitle,
+    title: v.title,
+    viewCount: v.viewCount,
+    publishedAtRelative: v.publishedAtRelative,
+    thumbnailUrl: v.thumbnailUrl,
+    durationSec: v.durationSec,
+    fetchedAt: now,
+  }));
+  if (entries.length > 0) await storage.setScrapedVideos(entries);
+  if (databankId && entries.length > 0) {
+    for (const e of entries) {
+      await storage.addToDatabank(databankId, {
+        platform: 'youtube',
+        videoId: e.videoId,
+      });
+    }
+  }
 }
 
 export async function batchScrapeChannels(
   channelIds: string[],
   opts: BatchScrapeOptions = {},
 ): Promise<BatchResult<ChannelDigest>[]> {
-  return runBatch(channelIds, (id) => scrapeChannelById(id), {
+  const latestN = Math.max(1, Math.min(MAX_LATEST, opts.latestN ?? MAX_LATEST));
+  const results = await runBatch(channelIds, (id) => scrapeChannelById(id), {
     concurrency: opts.concurrency ?? 2,
     jitterMs: opts.jitterMs ?? 2500,
     onProgress: opts.onProgress,
     signal: opts.signal,
   });
+  for (const r of results) {
+    if (r.ok) {
+      r.value.videos = r.value.videos.slice(0, latestN);
+      await persistChannelResult(r.value, latestN, opts.databankId);
+    }
+  }
+  return results;
 }
 
 export function uniqueChannelsFromSearch(results: ScrapedSearchResult[]): { channelId: string; channelTitle: string }[] {
