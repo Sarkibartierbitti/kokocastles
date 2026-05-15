@@ -36,7 +36,18 @@ export default function VideoCard({ flag, triageHook }: Props) {
         </div>
       </Link>
       <div className="flex flex-wrap gap-2 px-3 pb-3">
-        <AddToDatabankButton videoRef={{ platform: video.platform, videoId: video.videoId }} />
+        <AddToDatabankButton
+          videoRef={{ platform: video.platform, videoId: video.videoId }}
+          metadata={{
+            channelId: video.channelId,
+            channelTitle: video.channelTitle,
+            title: video.title,
+            viewCount: video.viewCount,
+            publishedAtRelative: '',
+            thumbnailUrl: video.thumbnailUrl,
+            durationSec: null,
+          }}
+        />
       </div>
     </div>
   );

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import DatabankPicker from './DatabankPicker';
-import type { PlatformId } from '~/types';
+import { storage } from '~/lib/storage';
+import type { PlatformId, ScrapedVideoCacheEntry } from '~/types';
 
 interface Props {
   videoRef: { platform: PlatformId; videoId: string };
+  metadata?: Omit<ScrapedVideoCacheEntry, 'platform' | 'videoId' | 'fetchedAt'>;
 }
 
-export default function AddToDatabankButton({ videoRef }: Props) {
+export default function AddToDatabankButton({ videoRef, metadata }: Props) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
   return (
@@ -23,7 +25,18 @@ export default function AddToDatabankButton({ videoRef }: Props) {
         open={open}
         videoRef={videoRef}
         onClose={() => setOpen(false)}
-        onPicked={() => { setDone(true); setTimeout(() => setDone(false), 1500); }}
+        onPicked={async () => {
+          if (metadata && !storage.getScrapedVideo(videoRef.platform, videoRef.videoId)) {
+            await storage.setScrapedVideos([{
+              platform: videoRef.platform,
+              videoId: videoRef.videoId,
+              fetchedAt: new Date().toISOString(),
+              ...metadata,
+            }]);
+          }
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        }}
       />
     </>
   );
