@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import KeyInput from '~/app/components/KeyInput';
 import SearchableSelect, { type Option as SelectOption } from '~/app/components/SearchableSelect';
 import { storage } from '~/lib/storage';
@@ -6,6 +6,7 @@ import { detectProvider } from '~/lib/llm/detect';
 import { PROVIDERS, getProvider } from '~/lib/llm/providers';
 import type { LLMProvider } from '~/lib/llm/types';
 import type { Channel } from '~/types';
+import { buildBundle, parseBundle } from '~/lib/configIo';
 
 export default function Settings() {
   const [llmKey, setLlmKey] = useState('');
@@ -23,6 +24,9 @@ export default function Settings() {
   const [igEnabled, setIgEnabled] = useState(false);
   const [ttEnabled, setTtEnabled] = useState(false);
   const [framesEnabled, setFramesEnabled] = useState(false);
+  const [ioMsg, setIoMsg] = useState<string | null>(null);
+  const [ioErr, setIoErr] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLlmKey(storage.getLLMKey());
@@ -132,6 +136,43 @@ export default function Settings() {
     await storage.setFramesEnabled(framesEnabled);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+  }
+
+  async function exportConfig() {
+    setIoMsg(null);
+    setIoErr(null);
+    try {
+      const all = await browser.storage.local.get(null);
+      const bundle = buildBundle(all as Record<string, unknown>);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kokocastles-config-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setIoMsg(`Exported ${Object.keys(bundle.entries).length} keys.`);
+      setTimeout(() => setIoMsg(null), 2000);
+    } catch (e) {
+      setIoErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function importConfig(file: File) {
+    setIoMsg(null);
+    setIoErr(null);
+    try {
+      const text = await file.text();
+      const bundle = parseBundle(text);
+      const ok = window.confirm(
+        `Import ${Object.keys(bundle.entries).length} keys from ${file.name}? This OVERWRITES the matching keys in storage.`
+      );
+      if (!ok) return;
+      await browser.storage.local.set(bundle.entries);
+      setIoMsg(`Imported ${Object.keys(bundle.entries).length} keys. Reload to see changes.`);
+    } catch (e) {
+      setIoErr(e instanceof Error ? e.message : String(e));
+    }
   }
 
   return (
@@ -359,6 +400,40 @@ export default function Settings() {
           />
           Capture visual hook frames (slow; opens a hidden tab per video)
         </label>
+      </section>
+
+      <section className="koko-card p-6 space-y-3">
+        <h2 className="text-lg font-display font-semibold">Config import / export</h2>
+        <p className="text-xs text-slate-500">
+          JSON bundle of API keys, persona, watchlist, databanks, hypotheses, writer threads,
+          settings, and feature flags. Excludes per-video caches (analyses / transcripts / frames /
+          hook categories). Use to seed a fresh install in seconds.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={exportConfig} className="koko-btn">
+            Export config
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="koko-btn"
+          >
+            Import config
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void importConfig(f);
+              e.currentTarget.value = '';
+            }}
+            aria-label="Import config file"
+          />
+          {ioMsg ? <span className="text-xs text-slate-600">{ioMsg}</span> : null}
+          {ioErr ? <span className="text-xs text-red-600">{ioErr}</span> : null}
+        </div>
       </section>
 
       <div className="flex items-center gap-3">
