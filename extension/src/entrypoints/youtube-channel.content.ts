@@ -92,6 +92,12 @@ async function scrapeChannel(): Promise<ChannelData> {
   const videos: ScrapedVideo[] = items
     .map(parseVideoRenderer)
     .filter((v): v is ScrapedVideo => v !== null);
+  if (videos.length === 0 && items.length > 0) {
+    const sampleKeys = Object.keys((items[0] as Record<string, unknown>) ?? {});
+    console.warn('[koko channel-scrape] 0 items parsed from', items.length, 'renderers — selectors drifted. sample keys:', sampleKeys);
+  } else if (items.length === 0) {
+    console.warn('[koko channel-scrape] no candidate renderers in videos tab content');
+  }
   return { channelId, channelTitle, videos };
 }
 
