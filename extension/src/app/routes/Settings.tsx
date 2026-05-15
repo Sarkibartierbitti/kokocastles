@@ -165,11 +165,12 @@ export default function Settings() {
       const text = await file.text();
       const bundle = parseBundle(text);
       const ok = window.confirm(
-        `Import ${Object.keys(bundle.entries).length} keys from ${file.name}? This OVERWRITES the matching keys in storage.`
+        `Import ${Object.keys(bundle.entries).length} keys from ${file.name}? This OVERWRITES the matching keys in storage. Sidebar will reload.`
       );
       if (!ok) return;
       await browser.storage.local.set(bundle.entries);
-      setIoMsg(`Imported ${Object.keys(bundle.entries).length} keys. Reload to see changes.`);
+      setIoMsg(`Imported ${Object.keys(bundle.entries).length} keys. Reloading sidebar…`);
+      setTimeout(() => window.location.reload(), 500);
     } catch (e) {
       setIoErr(e instanceof Error ? e.message : String(e));
     }
@@ -215,11 +216,12 @@ export default function Settings() {
       const text = await res.text();
       const bundle = parseBundle(text);
       const ok = window.confirm(
-        `Load ${Object.keys(bundle.entries).length} keys from workspace? This OVERWRITES matching keys in storage.`
+        `Load ${Object.keys(bundle.entries).length} keys from workspace? This OVERWRITES matching keys in storage. Sidebar will reload.`
       );
       if (!ok) return;
       await browser.storage.local.set(bundle.entries);
-      setIoMsg(`Loaded ${Object.keys(bundle.entries).length} keys. Reload to see changes.`);
+      setIoMsg(`Loaded ${Object.keys(bundle.entries).length} keys. Reloading sidebar…`);
+      setTimeout(() => window.location.reload(), 500);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setIoErr(`Load failed: ${msg}. Is "npm run dev:config" running?`);
