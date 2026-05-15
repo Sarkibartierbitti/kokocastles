@@ -166,7 +166,7 @@ function parseVideoRenderer(item: unknown): ScrapedVideo | null {
 }
 
 function parseLockupViewModel(lvm: Record<string, unknown>): ScrapedVideo | null {
-  if (lvm.contentType && lvm.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO') return null;
+  if (lvm.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO') return null;
   const videoId = lvm.contentId as string | undefined;
   if (!videoId) return null;
 
@@ -184,13 +184,22 @@ function parseLockupViewModel(lvm: Record<string, unknown>): ScrapedVideo | null
   }
   let viewCount: number | null = null;
   let publishedAtRelative = '';
+  const leftover: string[] = [];
+  // TODO: parseViewCount only recognizes K/M/B magnitude suffixes.
+  // Localized magnitude words ("тыс.", "mil", "Tsd.", "万") parse to the
+  // raw digit count, which understates by ~1000×. Acceptable for now —
+  // drift telemetry (Task 3) will surface if it becomes user-visible.
   for (const t of parts) {
-    if (viewCount === null && /\d/.test(t) && /view/i.test(t)) {
-      viewCount = parseViewCount(t);
-      continue;
+    if (viewCount === null) {
+      const v = parseViewCount(t);
+      if (v !== null && v > 0) {
+        viewCount = v;
+        continue;
+      }
     }
-    if (!publishedAtRelative) publishedAtRelative = t;
+    leftover.push(t);
   }
+  if (leftover.length > 0) publishedAtRelative = leftover[0];
 
   const sources = (((lvm.contentImage as { thumbnailViewModel?: { image?: { sources?: { url: string; width?: number; height?: number }[] } } } | undefined)?.thumbnailViewModel?.image?.sources) ?? []);
   const best = sources.slice().sort((a, b) => ((b.width ?? 0) * (b.height ?? 0)) - ((a.width ?? 0) * (a.height ?? 0)))[0];
