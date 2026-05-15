@@ -46,10 +46,13 @@ describe('parseVideoRenderer — lockupViewModel', () => {
           { richItemRenderer: { content: { lockupViewModel: lockupSample } } },
           { gridVideoRenderer: { videoId: 'g1' } },
           { other: { videoRenderer: { videoId: 'v1' } } },
+          { lockupViewModel: lockupSample },
         ],
       },
     };
     const items = extractVideoItems(tab);
-    expect(items.length).toBeGreaterThanOrEqual(3);
+    expect(items.some((x) => (x as Record<string, unknown>).lockupViewModel)).toBe(true);
+    expect(items.some((x) => (x as Record<string, unknown>).gridVideoRenderer)).toBe(true);
+    expect(items.some((x) => (x as Record<string, unknown>).richItemRenderer)).toBe(true);
   });
 });
