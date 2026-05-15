@@ -158,6 +158,14 @@ async function handleScrapeUrl(url: string, kind: 'channel' | 'search'): Promise
   browser.tabs.remove(tabId).catch(() => {});
 
   if (reply?.type === 'scraped-channel') {
+    if (reply.videos.length === 0) {
+      await browser.storage.local.set({
+        'koko.platformWarn.youtube':
+          'Scrape returned 0 videos — YouTube selectors may have drifted. Update the parser or wait for a release.',
+      });
+    } else {
+      await browser.storage.local.set({ 'koko.platformWarn.youtube': null });
+    }
     return { kind: 'channel', videos: reply.videos, channelTitle: reply.channelTitle, channelId: reply.channelId };
   }
   if (reply?.type === 'scraped-search') {
