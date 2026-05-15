@@ -117,7 +117,7 @@ function extractVideoItems(videoTab: unknown): unknown[] {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) { node.forEach(walk); return; }
     const obj = node as Record<string, unknown>;
-    if (obj.richItemRenderer || obj.gridVideoRenderer || obj.videoRenderer) {
+    if (obj.richItemRenderer || obj.gridVideoRenderer || obj.videoRenderer || obj.lockupViewModel) {
       collected.push(obj);
     }
     for (const v of Object.values(obj)) walk(v);
@@ -128,27 +128,89 @@ function extractVideoItems(videoTab: unknown): unknown[] {
 
 function parseVideoRenderer(item: unknown): ScrapedVideo | null {
   const obj = item as Record<string, unknown>;
+
+  // Legacy renderer shapes
   const r =
     (obj.videoRenderer as Record<string, unknown> | undefined) ??
     (obj.gridVideoRenderer as Record<string, unknown> | undefined) ??
     ((obj.richItemRenderer as { content?: { videoRenderer?: Record<string, unknown> } } | undefined)?.content?.videoRenderer as Record<string, unknown> | undefined);
-  if (!r) return null;
-  const videoId = r.videoId as string | undefined;
+  if (r) {
+    const videoId = r.videoId as string | undefined;
+    if (!videoId) return null;
+    const title = (((r.title as { runs?: { text: string }[] } | undefined)?.runs ?? [])[0]?.text)
+      ?? ((r.title as { simpleText?: string } | undefined)?.simpleText)
+      ?? '';
+    const viewCountStr =
+      ((r.viewCountText as { simpleText?: string } | undefined)?.simpleText) ??
+      (((r.viewCountText as { runs?: { text: string }[] } | undefined)?.runs ?? []).map((x) => x.text).join('')) ??
+      '';
+    const publishedAtRelative = ((r.publishedTimeText as { simpleText?: string } | undefined)?.simpleText) ?? '';
+    const thumbnailUrl = ((r.thumbnail as { thumbnails?: { url: string }[] } | undefined)?.thumbnails ?? []).at(-1)?.url ?? '';
+    const durationStr = ((r.lengthText as { simpleText?: string } | undefined)?.simpleText) ?? '';
+    return {
+      videoId,
+      title,
+      viewCount: parseViewCount(viewCountStr),
+      publishedAtRelative,
+      thumbnailUrl,
+      durationSec: parseDuration(durationStr),
+    };
+  }
+
+  // Lockup view-model shape (current YT channel grid)
+  const lvm = (obj.lockupViewModel as Record<string, unknown> | undefined)
+    ?? ((obj.richItemRenderer as { content?: { lockupViewModel?: Record<string, unknown> } } | undefined)?.content?.lockupViewModel);
+  if (lvm) return parseLockupViewModel(lvm);
+
+  return null;
+}
+
+function parseLockupViewModel(lvm: Record<string, unknown>): ScrapedVideo | null {
+  if (lvm.contentType && lvm.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO') return null;
+  const videoId = lvm.contentId as string | undefined;
   if (!videoId) return null;
-  const title = (((r.title as { runs?: { text: string }[] } | undefined)?.runs ?? [])[0]?.text)
-    ?? ((r.title as { simpleText?: string } | undefined)?.simpleText)
-    ?? '';
-  const viewCountStr =
-    ((r.viewCountText as { simpleText?: string } | undefined)?.simpleText) ??
-    (((r.viewCountText as { runs?: { text: string }[] } | undefined)?.runs ?? []).map((x) => x.text).join('')) ??
-    '';
-  const publishedAtRelative = ((r.publishedTimeText as { simpleText?: string } | undefined)?.simpleText) ?? '';
-  const thumbnailUrl = ((r.thumbnail as { thumbnails?: { url: string }[] } | undefined)?.thumbnails ?? []).at(-1)?.url ?? '';
-  const durationStr = ((r.lengthText as { simpleText?: string } | undefined)?.simpleText) ?? '';
+
+  const meta = (lvm.metadata as { lockupMetadataViewModel?: Record<string, unknown> } | undefined)?.lockupMetadataViewModel;
+  const title = ((meta?.title as { content?: string } | undefined)?.content) ?? '';
+
+  const rows = ((meta?.metadata as { contentMetadataViewModel?: { metadataRows?: unknown[] } } | undefined)?.contentMetadataViewModel?.metadataRows ?? []) as unknown[];
+  const parts: string[] = [];
+  for (const row of rows) {
+    const mp = ((row as { metadataParts?: { text?: { content?: string } }[] }).metadataParts) ?? [];
+    for (const p of mp) {
+      const t = p.text?.content;
+      if (t) parts.push(t);
+    }
+  }
+  let viewCount: number | null = null;
+  let publishedAtRelative = '';
+  for (const t of parts) {
+    if (viewCount === null && /\d/.test(t) && /view/i.test(t)) {
+      viewCount = parseViewCount(t);
+      continue;
+    }
+    if (!publishedAtRelative) publishedAtRelative = t;
+  }
+
+  const sources = (((lvm.contentImage as { thumbnailViewModel?: { image?: { sources?: { url: string; width?: number; height?: number }[] } } } | undefined)?.thumbnailViewModel?.image?.sources) ?? []);
+  const best = sources.slice().sort((a, b) => ((b.width ?? 0) * (b.height ?? 0)) - ((a.width ?? 0) * (a.height ?? 0)))[0];
+  const thumbnailUrl = best?.url ?? '';
+
+  const overlays = (((lvm.contentImage as { thumbnailViewModel?: { overlays?: unknown[] } } | undefined)?.thumbnailViewModel?.overlays) ?? []) as unknown[];
+  let durationStr = '';
+  for (const ov of overlays) {
+    const badges = ((ov as { thumbnailBottomOverlayViewModel?: { badges?: unknown[] } }).thumbnailBottomOverlayViewModel?.badges ?? []) as unknown[];
+    for (const b of badges) {
+      const text = ((b as { thumbnailBadgeViewModel?: { text?: string } }).thumbnailBadgeViewModel?.text) ?? '';
+      if (/^\d+(:\d+){1,2}$/.test(text)) { durationStr = text; break; }
+    }
+    if (durationStr) break;
+  }
+
   return {
     videoId,
     title,
-    viewCount: parseViewCount(viewCountStr),
+    viewCount,
     publishedAtRelative,
     thumbnailUrl,
     durationSec: parseDuration(durationStr),
