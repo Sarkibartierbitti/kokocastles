@@ -80,6 +80,21 @@ describe('Settings — throttling + refresh', () => {
   });
 });
 
+describe('Settings — llmModel persistence', () => {
+  it('hydrated llmModel survives save (no overwrite)', async () => {
+    fakeStore['koko.llmKey'] = 'sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    fakeStore['koko.llmProvider'] = 'anthropic';
+    fakeStore['koko.llmModel'] = 'claude-opus-4-7';
+    await renderSettings();
+    // Wait for hydration to land + dropdown to render.
+    await screen.findByText(/Claude Opus 4.7/);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(fakeStore['koko.llmModel']).toBe('claude-opus-4-7');
+    });
+  });
+});
+
 describe('Settings — own channel', () => {
   it('renders own-channel URL input empty by default', async () => {
     await renderSettings();

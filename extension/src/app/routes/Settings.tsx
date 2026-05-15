@@ -60,19 +60,7 @@ export default function Settings() {
     }
   }, [llmKey, detected]);
 
-  // Validate model against the currently selected provider's model list.
-  // If the model is no longer valid, reset to empty (will fall back to first model on save).
-  useEffect(() => {
-    if (!llmProvider) {
-      if (llmModel) setLlmModel('');
-      return;
-    }
-    const def = getProvider(llmProvider);
-    const validIds = new Set(def?.models.map((m) => m.id) ?? []);
-    if (llmModel && !validIds.has(llmModel)) {
-      setLlmModel('');
-    }
-  }, [llmProvider, llmModel]);
+  // (validation effect removed — see save() which clamps model to a valid id)
 
   const providerOptions: SelectOption[] = useMemo(
     () =>
