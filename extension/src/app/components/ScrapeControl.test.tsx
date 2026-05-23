@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 const fakeStore: Record<string, unknown> = {
   'koko.watchlist': [{ platform: 'youtube', channelId: 'UC1', title: 'Channel One' }],
 };
+
+// only used to scrape short form
+
 const mockBrowser = {
   storage: {
     local: {
